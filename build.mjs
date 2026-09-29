@@ -10,6 +10,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { findBlocks } from './book/tools/run-lines.mjs';
+import { classifyBlock } from './book/tools/classify.mjs';
+
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
@@ -58,6 +61,22 @@ function insertBefore(html, anchor, insertion) {
   return html.slice(0, idx) + insertion + '\n' + html.slice(idx);
 }
 
+// Tags every `$` example line that runs cleanly in the sandbox with a ▶ Run
+// button, by putting data-run='[{"l":line,"c":command}]' on its <code> element.
+// run-buttons.js (which runs after the syntax highlighter) turns those into
+// buttons. Blocks with no runnable line are left untouched.
+function tagRunnable(html) {
+  let out = html;
+  for (const block of findBlocks(html).reverse()) {
+    const runnable = classifyBlock(block).filter((c) => c.runnable).map((c) => ({ l: c.line, c: c.cmd }));
+    if (!runnable.length) continue;
+    const attr = `data-run="${escapeHtml(JSON.stringify(runnable)).replace(/"/g, '&quot;')}"`;
+    const tagged = out.slice(block.start, block.end).replace('<pre><code', () => `<pre><code ${attr}`);
+    out = out.slice(0, block.start) + tagged + out.slice(block.end);
+  }
+  return out;
+}
+
 function liveTerminalWidget(introText, seedCommands) {
   const attrs = [`data-shell-term="1"`];
   if (introText) attrs.push(`data-intro="${introText.replace(/"/g, '&quot;')}"`);
@@ -93,12 +112,13 @@ const MODULES = [
   'src/engine/builtins.js',
   'src/widgets/terminal-widget.js',
   'src/widgets/bonus-widgets.js',
+  'src/widgets/run-buttons.js',
 ];
 
 function buildInteractive() {
   const chapters = chapterSources.map((source, i) => {
     const n = i + 1;
-    let html = source;
+    let html = tagRunnable(source);
     const qAnchor = `<h3 id="q${n}">`;
     if (n === 8) html = insertBefore(html, '<div class="box lab">', '<div data-chmod-calc="1"></div>');
     if (n === 10) html = insertBefore(html, '<h3 id="expansion-order">', '<div data-quote-box="1"></div>');
@@ -112,14 +132,15 @@ function buildInteractive() {
 
   const content = [
     read('book/template/interactive-intro.html'),
-    front,
+    tagRunnable(front),
     chapters.join('\n'),
     appendixA,
     appendixB.replace('<h2 id="appendix-b">', APPENDIX_B_NOTE + '<h2 id="appendix-b">'),
   ].join('\n');
 
   const css = bookCss + read('book/template/interactive.css') +
-    read('src/widgets/terminal-widget.css') + read('src/widgets/bonus-widgets.css');
+    read('src/widgets/terminal-widget.css') + read('src/widgets/bonus-widgets.css') +
+    read('src/widgets/run-buttons.css');
   const modules = MODULES.map((p) => `<script>\n${read(p)}\n</script>`).join('\n');
 
   return fill(read('book/template/interactive.html'), { CSS: css, COVER: cover, CONTENT: content, BOOK_JS: bookJs, MODULES: modules });

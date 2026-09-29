@@ -65,6 +65,29 @@ try {
   const xss = await page.evaluate(() => ({ fired: !!window.__xss, imgs: document.querySelectorAll('.chmod-result img').length }));
   check('chmod filename cannot inject HTML', !xss.fired && xss.imgs === 0, JSON.stringify(xss));
 
+  // ▶ Run buttons: click one and a terminal opens directly under its code block.
+  const runInfo = await page.evaluate(() => ({
+    buttons: document.querySelectorAll('.run-btn').length,
+    inPlain: document.querySelectorAll('code.plain .run-btn').length,
+    inSetupScript: [...document.querySelectorAll('pre')].filter((p) => p.textContent.includes('Sandbox ready at') && p.textContent.length > 2000).reduce((n, p) => n + p.querySelectorAll('.run-btn').length, 0),
+  }));
+  check('▶ Run buttons are attached to example lines', runInfo.buttons > 100 && runInfo.inPlain === 0 && runInfo.inSetupScript === 0, JSON.stringify(runInfo));
+  await page.evaluate(() => window.__resetShellSandbox());
+  const block = page.locator('pre:has(code[data-run])', { hasText: 'ls -l | wc -l' }).first();
+  await block.scrollIntoViewIfNeeded();
+  await block.locator('.run-btn').first().click();
+  const runTerm = page.locator('pre:has(code[data-run]):has-text("ls -l | wc -l") + .run-term');
+  await runTerm.waitFor({ timeout: 2000 });
+  const runText = await runTerm.locator('.shell-term-body').innerText();
+  check('Run opens a terminal right under the block and shows the output', /ls -l \| wc -l[^\n]*\n\s*\d+/.test(runText), runText.slice(-200));
+  const sameSession = await page.evaluate(() => window.__shellTerminals.every((t) => t.session === window.__labSession));
+  check('the Run terminal shares the sandbox', sameSession);
+  await block.locator('.run-btn').first().click();
+  check('a second click reuses the same terminal', (await page.locator('.run-term').count()) === 1);
+  await page.evaluate(() => window.__resetShellSandbox());
+  await runTerm.locator('.run-term-close').click();
+  check('the Run terminal can be closed', (await page.locator('.run-term').count()) === 0 && (await page.evaluate(() => window.__shellTerminals.length)) === 12);
+
   // Appendix B shows the real script, not the build placeholder.
   const appendixB = await page.evaluate(() => document.getElementById('appendix-b').parentElement.innerText);
   check('Appendix B shows the setup script', appendixB.includes('Sandbox ready at') && !appendixB.includes('__SETUP_SCRIPT__'));
@@ -85,6 +108,7 @@ try {
   }));
   check('print edition builds its table of contents and cover', printInfo.toc > 50 && printInfo.cover === 1, JSON.stringify(printInfo));
   check('print edition has no live terminals', printInfo.terminals === 0);
+  check('print edition has no Run buttons', (await print.evaluate(() => document.querySelectorAll('.run-btn, [data-run]').length)) === 0);
   check('no page errors (print)', printErrors.length === 0, printErrors.join(' | '));
 } finally {
   await browser.close();

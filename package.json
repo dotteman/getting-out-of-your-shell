@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node build.mjs --check",
-    "test": "node test/test.js && node test/smoke.js && node test/seed-parity.mjs",
+    "test": "node test/test.js && node test/smoke.js && node test/seed-parity.mjs && node test/run-lines.mjs",
     "test:browser": "node test/browser-smoke.mjs"
   },
   "devDependencies": {

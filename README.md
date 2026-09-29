@@ -6,7 +6,7 @@ The book comes in two editions, built from the same chapter files:
 
 | Edition | File | What it is |
 | --- | --- | --- |
-| Interactive | [`docs/index.html`](docs/index.html) | The book with live terminals in every chapter, backed by a bash simulator that runs entirely in the browser, plus a chmod calculator, a quoting sandbox and a script runner |
+| Interactive | [`docs/index.html`](docs/index.html) | The book with a ▶ Run button on the runnable `$` examples and live terminals in every chapter, backed by a bash simulator that runs entirely in the browser, plus a chmod calculator, a quoting sandbox and a script runner |
 | Print | [`docs/print.html`](docs/print.html) | The same text as a clean, printable single page |
 
 Both are single self-contained HTML files. Download one and open it in a browser; nothing else is needed.
@@ -29,12 +29,13 @@ A test (`test/seed-parity.mjs`) runs the real script and checks that the browser
 
 ```
 book/
+  tools/          decides which examples get a ▶ Run button
   parts/          the chapters: front matter, 01–12, appendices A and B
   template/       page frames, styles and the table-of-contents script for each edition
   assets/         the cover image
 src/
   engine/         the bash simulator: tokenizer, parser, virtual filesystem, ~90 commands, mini awk and sed
-  widgets/        the terminal UI and the bonus widgets
+  widgets/        the terminal UI, the ▶ Run buttons and the bonus widgets
 lab/setup.sh      the real sandbox setup script
 test/             engine regression suite, seed parity, browser smoke test
 build.mjs         builds both editions into docs/
@@ -59,6 +60,10 @@ npm run test:browser
 ```
 
 CI runs all of these on every push. Edit files under `book/`, `src/` or `lab/`, then run `node build.mjs` and commit the regenerated `docs/` alongside your change.
+
+## Run buttons
+
+`build.mjs` runs every `$` example line in a fresh sandbox (starting in `~/shell-lab`, in order within its block). A line that runs without error output gets a ▶ Run button; examples that use placeholder names (`file.txt`, `app.log`), commands the simulator lacks, history shortcuts, or anything destructive do not. The rules and the exclusion list, with reasons, are in `book/tools/classify.mjs`; `test/run-lines.mjs` pins them.
 
 ## About the simulator
 

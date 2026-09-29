@@ -1,0 +1,17 @@
+
+/* ---- ▶ Run buttons on `$` examples ---- */
+.run-btn{
+  margin-left:.9em; vertical-align:baseline; cursor:pointer; user-select:none;
+  background:rgba(255,255,255,.09); color:#ded7cd; border:none; border-radius:4px;
+  font:600 10.5px/1 -apple-system,system-ui,sans-serif; padding:.25rem .5rem;
+  opacity:.55; transition:opacity .15s, background .15s;
+}
+.run-btn::before{content:"▶ Run"}
+pre:hover .run-btn, .run-btn:focus-visible{opacity:1}
+.run-btn:hover{background:#3d8f5a; color:#fff; opacity:1}
+.run-btn:focus-visible{outline:2px solid #6fc78d; outline-offset:1px}
+/* The terminal opened by a Run button sits flush under its code block. */
+.run-term{margin:-.6rem 0 1.4rem}
+.run-term .shell-term-wrap{margin:0; border-top-left-radius:0; border-top-right-radius:0}
+.run-term-close{margin-left:auto; padding:3px 7px}
+@media print{ .run-btn,.run-term{display:none} }
