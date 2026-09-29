@@ -1,0 +1,124 @@
+<h2 id="ch2"><span class="chapnum">Chapter 2</span>Moving Around</h2>
+
+<p>Linux organizes everything into one tree that starts at <code>/</code>, the root. There are no drive letters. A USB stick, a network share, and your hard disk all appear as directories somewhere under <code>/</code>.</p>
+
+<h3 id="paths">Absolute and relative paths</h3>
+
+<p>An <strong>absolute path</strong> starts at the root and works everywhere: <code>/var/log/syslog</code>. A <strong>relative path</strong> starts from wherever you currently are: <code>log/syslog</code>. Four shorthands do most of the work:</p>
+
+<table>
+  <tr><th>Symbol</th><th>Means</th></tr>
+  <tr><td><code>.</code></td><td>the current directory</td></tr>
+  <tr><td><code>..</code></td><td>the parent directory</td></tr>
+  <tr><td><code>~</code></td><td>your home directory</td></tr>
+  <tr><td><code>-</code></td><td>(with <code>cd</code>) the directory you were in previously</td></tr>
+</table>
+
+<pre><code>$ cd /var/log        # absolute
+$ cd ..              # up one level, now in /var
+$ cd -               # back to /var/log
+$ cd                 # with no argument: straight home
+$ cd ../../etc       # relative, climbing two levels then down</code></pre>
+
+<h3 id="ls">Seeing what is there</h3>
+
+<pre><code>$ ls                 # names only
+$ ls -l              # long format: permissions, owner, size, date
+$ ls -a              # include hidden files (names starting with .)
+$ ls -lh             # sizes as 4.0K, 2.3M instead of raw bytes
+$ ls -lt             # newest first
+$ ls -ltr            # newest last — handy for logs, the interesting line ends up nearest your prompt
+$ ls -ld /etc        # info about the directory itself, not its contents</code></pre>
+
+<p>Read a long listing left to right:</p>
+
+<pre><code class="plain">-rw-r--r--  1 dave  staff   1420 Aug 14 09:03 notes.txt
+│└┬┘└┬┘└┬┘  │  │     │       │        │          │
+│ │  │  │   │  │     │       │        │          └ name
+│ │  │  │   │  │     │       │        └ last modified
+│ │  │  │   │  │     │       └ size in bytes
+│ │  │  │   │  │     └ group
+│ │  │  │   │  └ owner
+│ │  │  │   └ number of hard links
+│ │  │  └ permissions for everyone else
+│ │  └ permissions for the group
+│ └ permissions for the owner
+└ type: - file, d directory, l symlink</code></pre>
+
+<p>Chapter 8 unpacks the permission bits. For now: <code>d</code> at the start means directory, and <code>l</code> means symbolic link.</p>
+
+<h3 id="globbing">Globbing: patterns instead of names</h3>
+
+<p>The shell expands wildcards <em>before</em> running the command. <code>ls *.txt</code> never reaches <code>ls</code> as <code>*.txt</code> — bash replaces it with the list of matching filenames first. This is one of the most important facts in this book, and Chapter 10 returns to it.</p>
+
+<table>
+  <tr><th>Pattern</th><th>Matches</th></tr>
+  <tr><td><code>*</code></td><td>any characters, including none — <code>*.log</code>, <code>report*</code></td></tr>
+  <tr><td><code>?</code></td><td>exactly one character — <code>file?.txt</code> matches <code>file1.txt</code>, not <code>file10.txt</code></td></tr>
+  <tr><td><code>[abc]</code></td><td>one character from the set — <code>file[123].txt</code></td></tr>
+  <tr><td><code>[a-z]</code></td><td>one character from the range</td></tr>
+  <tr><td><code>{a,b}</code></td><td>brace expansion — <code>file.{txt,md}</code> becomes two words; unlike the others it works even if no file matches</td></tr>
+</table>
+
+<pre><code>$ ls *.log                     # every log file here
+$ ls report_2026-0[1-6]*.csv   # first half of the year
+$ mkdir -p project/{src,test,docs}   # creates three directories in one go
+$ echo {1..5}
+1 2 3 4 5</code></pre>
+
+<div class="box warn">
+  <span class="label">Careful</span>
+  <p>A glob is not a regular expression. In glob syntax <code>*</code> means "anything"; in regex it means "zero or more of the previous thing". <code>grep *.txt</code> and <code>ls *.txt</code> are doing entirely different things with that asterisk. Chapter 7 covers regex properly.</p>
+</div>
+
+<h3 id="tree-and-friends">Seeing structure</h3>
+
+<pre><code>$ tree -L 2            # directory tree, two levels deep (install if missing)
+$ ls -R                 # recursive listing, the always-available fallback
+$ du -sh *              # size of each item here, summarized
+$ du -sh . | sort -h    # what is eating my disk
+$ df -h                 # free space per filesystem</code></pre>
+
+<h3 id="key-dirs">Directories worth knowing</h3>
+
+<table>
+  <tr><th>Path</th><th>Contains</th></tr>
+  <tr><td><code>/home/you</code></td><td>your files. The only place you can write without permission games.</td></tr>
+  <tr><td><code>/etc</code></td><td>system configuration, all plain text</td></tr>
+  <tr><td><code>/var/log</code></td><td>log files</td></tr>
+  <tr><td><code>/tmp</code></td><td>scratch space, wiped on reboot, writable by everyone</td></tr>
+  <tr><td><code>/usr/bin</code>, <code>/bin</code></td><td>the programs you run</td></tr>
+  <tr><td><code>/opt</code></td><td>hand-installed third-party software</td></tr>
+  <tr><td><code>/proc</code></td><td>a fake filesystem exposing kernel and process state as files</td></tr>
+</table>
+
+<div class="box lab">
+  <span class="label">Lab 2 · Navigation</span>
+  <p>Run the setup script from <a href="#appendix-b">Appendix B</a> first, then <code>cd ~/shell-lab</code>.</p>
+  <ol>
+    <li>List everything in <code>logs/</code> in long format, human-readable sizes, newest last.</li>
+    <li>From <code>~/shell-lab/logs</code>, get to <code>~/shell-lab/data</code> using a relative path only (no <code>~</code>, no <code>/</code> at the start).</li>
+    <li>Jump back to <code>logs</code> with a single two-character argument.</li>
+    <li>List every <code>.csv</code> file in <code>data/</code> whose name contains <code>2026</code>.</li>
+    <li>Create, in one command, the directories <code>archive/2026/{q1,q2,q3,q4}</code>.</li>
+    <li>Show which of the top-level directories in <code>~/shell-lab</code> is largest.</li>
+    <li>Find every hidden file in your home directory.</li>
+  </ol>
+</div>
+
+<h3 id="q2">Questions</h3>
+
+<details><summary>Why does <code>cd</code> with no arguments not throw an error?</summary>
+<div class="ans"><p>Bare <code>cd</code> is defined to mean "go to <code>$HOME</code>". It is the fastest way home from anywhere. Likewise <code>cd -</code> toggles between the last two directories, which is excellent when you are bouncing between a config directory and a log directory.</p></div></details>
+
+<details><summary><code>ls *.txt</code> prints "no such file or directory: *.txt". What happened?</summary>
+<div class="ans"><p>No file matched the pattern, so bash left the literal string <code>*.txt</code> in place and passed it to <code>ls</code>, which then complained about a file with that odd name. This is standard (and slightly surprising) bash behavior. You can make unmatched globs expand to nothing instead with <code>shopt -s nullglob</code>, but knowing why the error looks like that is usually enough.</p></div></details>
+
+<details><summary>What is the difference between <code>ls -l /etc</code> and <code>ls -ld /etc</code>?</summary>
+<div class="ans"><p><code>ls -l /etc</code> lists the <em>contents</em> of the directory. <code>ls -ld /etc</code> lists the directory entry itself — one line showing <code>/etc</code>'s own permissions, owner, and size. Use <code>-d</code> whenever you want to inspect a directory rather than look inside it.</p></div></details>
+
+<details><summary>You are in <code>/home/dave/projects/api/src</code>. Write the shortest way to get to <code>/home/dave/projects/web</code>.</summary>
+<div class="ans"><p><code>cd ../../web</code> — up out of <code>src</code>, up out of <code>api</code>, then down into <code>web</code>. <code>cd ~/projects/web</code> is the same length and arguably clearer; both are fine.</p></div></details>
+
+<details><summary>Why is <code>ls -ltr</code> a favorite of experienced admins?</summary>
+<div class="ans"><p><code>-t</code> sorts by time, <code>-r</code> reverses it, so the most recently modified file appears at the <em>bottom</em> of the output — right above your prompt, where your eyes already are. On a directory with hundreds of log files, that is the file you almost always want.</p></div></details>

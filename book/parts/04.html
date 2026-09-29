@@ -1,0 +1,110 @@
+<h2 id="ch4"><span class="chapnum">Chapter 4</span>Looking Inside Files</h2>
+
+<p>Almost everything on a Linux system is a text file: configuration, logs, data, scripts. Knowing four or five ways to read them — and which one fits the situation — removes any need to open a GUI editor to glance at something.</p>
+
+<h3 id="cat-less">Reading whole files</h3>
+
+<pre><code>$ cat notes.txt              # dump the whole file to the screen
+$ cat -n script.sh           # with line numbers
+$ cat a.txt b.txt &gt; both.txt # concatenate — this is what "cat" is short for
+$ less /var/log/syslog       # page through it interactively</code></pre>
+
+<p>Use <code>cat</code> for short files and <code>less</code> for anything you cannot see in one screen. <code>less</code> does not load the whole file into memory, so it opens a 4 GB log instantly.</p>
+
+<table>
+  <tr><th>In <code>less</code></th><th>Does</th></tr>
+  <tr><td><code>Space</code> / <code>b</code></td><td>page down / page up</td></tr>
+  <tr><td><code>g</code> / <code>G</code></td><td>jump to start / end of file</td></tr>
+  <tr><td><code>/word</code></td><td>search forward; <code>n</code> next match, <code>N</code> previous</td></tr>
+  <tr><td><code>&amp;word</code></td><td>show <em>only</em> lines matching — a hidden gem for logs</td></tr>
+  <tr><td><code>F</code></td><td>follow the file as it grows, like <code>tail -f</code>; Ctrl-C to stop</td></tr>
+  <tr><td><code>q</code></td><td>quit</td></tr>
+</table>
+
+<h3 id="head-tail">Reading parts of files</h3>
+
+<pre><code>$ head data.csv              # first 10 lines
+$ head -n 3 data.csv         # first 3
+$ tail -n 50 app.log         # last 50
+$ tail -f app.log            # keep printing new lines as they arrive
+$ tail -F app.log            # same, but survive log rotation
+$ head -n 20 file | tail -n 5    # lines 16-20</code></pre>
+
+<p><code>tail -f</code> is how you watch a service while you poke at it. Leave it running in one terminal, do the thing in another. Combine it with <code>grep</code> to watch only what matters:</p>
+
+<pre><code>$ tail -f app.log | grep --line-buffered ERROR</code></pre>
+
+<h3 id="counting">Counting and measuring</h3>
+
+<pre><code>$ wc -l access.log        # how many lines
+128473 access.log
+$ wc -w essay.txt         # words
+$ wc -c image.png         # bytes
+$ file mystery            # what kind of file is this, really?
+mystery: PNG image data, 1200 x 800, 8-bit/color RGBA
+$ stat notes.txt          # size, timestamps, permissions, inode</code></pre>
+
+<p><code>file</code> looks at the content, not the extension — useful when someone hands you <code>data.txt</code> that is actually a gzip archive.</p>
+
+<h3 id="comparing">Comparing</h3>
+
+<pre><code>$ diff old.conf new.conf         # line-by-line differences
+$ diff -u old.conf new.conf      # unified format — the same format git uses
+$ diff -r dir1/ dir2/            # compare whole trees
+$ cmp a.bin b.bin                # byte comparison, for binaries
+$ md5sum file                    # fingerprint, to check two copies match</code></pre>
+
+<pre><code>$ diff -u old.conf new.conf
+--- old.conf
++++ new.conf
+@@ -3,5 +3,5 @@
+ listen 80;
+-worker_processes 2;
++worker_processes 4;
+ keepalive_timeout 65;</code></pre>
+
+<p>Lines with <code>-</code> are in the first file, <code>+</code> in the second, and unmarked lines are context. Once you can read a unified diff you can read every code review you will ever be sent.</p>
+
+<h3 id="binary">When it is not text</h3>
+
+<pre><code>$ strings binary_file | less      # pull out the readable text
+$ xxd file | head                 # hex dump
+$ zcat archive.gz | less          # read a gzipped file without unpacking it
+$ zgrep ERROR app.log.2.gz        # grep inside a gzipped file</code></pre>
+
+<div class="box tip">
+  <span class="label">Tip</span>
+  <p>Never <code>cat</code> a binary file. It will send control characters to your terminal and leave the display garbled. If you do, <code>reset</code> fixes it.</p>
+</div>
+
+<div class="box lab">
+  <span class="label">Lab 4 · Reading</span>
+  <p>Work inside <code>~/shell-lab</code>.</p>
+  <ol>
+    <li>Print the first 5 lines of <code>data/sales_2026.csv</code>.</li>
+    <li>Print the last 3 lines of <code>logs/app.log</code>.</li>
+    <li>Print <em>only</em> lines 10 through 14 of <code>logs/app.log</code>, using two commands and a pipe.</li>
+    <li>How many lines are in <code>logs/app.log</code>? How many words?</li>
+    <li>Open <code>logs/app.log</code> in <code>less</code>, jump to the end, search backwards for <code>ERROR</code>, then quit.</li>
+    <li>Use <code>diff</code> to show what changed between <code>conf/nginx.conf</code> and <code>conf/nginx.conf.new</code> in unified format.</li>
+    <li>Determine the real type of the file <code>data/mystery</code> without opening it.</li>
+    <li>Count the number of <code>.csv</code> files in <code>data/</code> — hint: <code>ls data/*.csv | wc -l</code>.</li>
+  </ol>
+</div>
+
+<h3 id="q4">Questions</h3>
+
+<details><summary>Why prefer <code>less</code> over <code>cat</code> for a large log?</summary>
+<div class="ans"><p><code>cat</code> writes the entire file to your terminal, which scrolls almost all of it past you and can take a long time for a multi-gigabyte file. <code>less</code> reads only the part it is displaying, so it opens instantly regardless of size, and it gives you search and navigation. The only real reason to <code>cat</code> a big file is to pipe it somewhere else — and even then you usually do not need <code>cat</code> at all (see the next question).</p></div></details>
+
+<details><summary>What is wrong with <code>cat file.txt | grep ERROR</code>?</summary>
+<div class="ans"><p>Nothing breaks, but it starts an extra process for no reason — <code>grep</code> can open the file itself: <code>grep ERROR file.txt</code>. This is common enough to have a name, the "useless use of cat". It is a small thing, but on a loop over 10,000 files it stops being small.</p></div></details>
+
+<details><summary>What is the difference between <code>tail -f</code> and <code>tail -F</code>?</summary>
+<div class="ans"><p><code>-f</code> follows the open file descriptor. If logrotate renames <code>app.log</code> to <code>app.log.1</code> and creates a fresh <code>app.log</code>, <code>-f</code> keeps watching the old, now-renamed file and goes silent. <code>-F</code> follows the <em>name</em>, so it notices the rotation and reattaches. On a long-running watch, use <code>-F</code>.</p></div></details>
+
+<details><summary>How do you print lines 100-110 of a file?</summary>
+<div class="ans"><p><code>head -n 110 file | tail -n 11</code> is the portable answer and the one most people reach for. <code>sed -n '100,110p' file</code> is more direct and stops reading early if you add <code>-n '100,110p;110q'</code>. Both are fine; the <code>head</code>/<code>tail</code> version is easier to remember under pressure.</p></div></details>
+
+<details><summary>A colleague sends you <code>config.txt</code> and your editor shows gibberish. What do you run first?</summary>
+<div class="ans"><p><code>file config.txt</code>. Extensions on Linux are decoration; <code>file</code> inspects the actual bytes and will tell you it is a gzip archive, a JPEG, or UTF-16 text. Then act accordingly — <code>zcat</code>, an image viewer, or <code>iconv</code>.</p></div></details>

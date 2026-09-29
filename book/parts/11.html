@@ -1,0 +1,242 @@
+<h2 id="ch11"><span class="chapnum">Chapter 11</span>Writing Scripts</h2>
+
+<p>A shell script is a file containing the commands you would have typed. That is the whole concept — but a few conventions separate a script that works today from one that works in six months on someone else's machine.</p>
+
+<h3 id="first-script">Your first script</h3>
+
+<pre><code>#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Hello from $0"
+echo "Running as $(whoami) on $(hostname)"</code></pre>
+
+<pre><code>$ chmod +x hello.sh
+$ ./hello.sh</code></pre>
+
+<p>Two lines of boilerplate, both worth understanding:</p>
+
+<p>The <strong>shebang</strong> <code>#!/usr/bin/env bash</code> tells the kernel which interpreter to use. Using <code>env</code> finds bash wherever it lives, which matters because it is <code>/bin/bash</code> on Linux and often <code>/opt/homebrew/bin/bash</code> on a Mac. Writing <code>#!/bin/sh</code> instead means a stricter POSIX shell where bash-isms like <code>[[ ]]</code> and arrays are unavailable.</p>
+
+<p><strong><code>set -euo pipefail</code></strong> is the single highest-value line in shell scripting:</p>
+
+<ul>
+  <li><code>-e</code> — exit immediately if any command fails, instead of ploughing ahead</li>
+  <li><code>-u</code> — treat an unset variable as an error, instead of silently expanding to nothing</li>
+  <li><code>-o pipefail</code> — a pipeline fails if <em>any</em> stage fails, not just the last one</li>
+</ul>
+
+<p>Without it, <code>cd /nonexistent; rm -rf *</code> in a script does exactly what you fear. With it, the script stops at the <code>cd</code>.</p>
+
+<h3 id="args">Arguments</h3>
+
+<pre><code>#!/usr/bin/env bash
+set -euo pipefail
+
+echo "script name : $0"
+echo "first arg   : $1"
+echo "all args    : $@"
+echo "how many    : $#"
+
+if [[ $# -lt 1 ]]; then
+  echo "usage: $0 SOURCE [DEST]" &gt;&amp;2
+  exit 1
+fi
+
+src="$1"
+dest="${2:-./backup}"      # second argument is optional</code></pre>
+
+<p>Note <code>&gt;&amp;2</code> on the usage message: errors belong on stderr so that someone piping your script's output does not get the error text mixed into their data. And <code>exit 1</code> — a non-zero exit code is how your script tells <code>&amp;&amp;</code>, CI systems, and other scripts that it failed.</p>
+
+<h3 id="conditionals">Conditionals</h3>
+
+<pre><code>if [[ -f "$file" ]]; then
+  echo "it's a regular file"
+elif [[ -d "$file" ]]; then
+  echo "it's a directory"
+else
+  echo "no such thing" &gt;&amp;2
+  exit 1
+fi</code></pre>
+
+<p>Use <code>[[ ]]</code> in bash, not the older <code>[ ]</code>: it does not split unquoted variables, supports <code>&amp;&amp;</code> and <code>||</code> inside, and supports regex matching with <code>=~</code>.</p>
+
+<table>
+  <tr><th>Test</th><th>True when</th></tr>
+  <tr><td><code>-f FILE</code></td><td>exists and is a regular file</td></tr>
+  <tr><td><code>-d DIR</code></td><td>exists and is a directory</td></tr>
+  <tr><td><code>-e PATH</code></td><td>exists, whatever it is</td></tr>
+  <tr><td><code>-r</code> / <code>-w</code> / <code>-x</code></td><td>you can read / write / execute it</td></tr>
+  <tr><td><code>-s FILE</code></td><td>exists and is not empty</td></tr>
+  <tr><td><code>-z "$S"</code></td><td>string is empty</td></tr>
+  <tr><td><code>-n "$S"</code></td><td>string is not empty</td></tr>
+  <tr><td><code>"$a" == "$b"</code></td><td>strings are equal</td></tr>
+  <tr><td><code>"$a" != "$b"</code></td><td>strings differ</td></tr>
+  <tr><td><code>$a -eq $b</code></td><td>numbers equal (also <code>-ne -lt -le -gt -ge</code>)</td></tr>
+  <tr><td><code>"$s" =~ ^ab</code></td><td>string matches the regex</td></tr>
+</table>
+
+<div class="box warn">
+  <span class="label">String vs number comparison</span>
+  <p><code>==</code> compares strings, <code>-eq</code> compares numbers. <code>[[ "10" == "9" ]]</code> is false and <code>[[ 10 -gt 9 ]]</code> is true, but <code>[[ "10" &gt; "9" ]]</code> is <em>false</em> — because as strings, "1" sorts before "9". Mixing these up produces code that is right for single-digit inputs and wrong afterwards.</p>
+</div>
+
+<p>Any command can be a condition — the exit code is the test:</p>
+
+<pre><code>if grep -q ERROR app.log; then
+  echo "errors found"
+fi
+
+if ! command -v docker &gt;/dev/null 2&gt;&amp;1; then
+  echo "docker is not installed" &gt;&amp;2
+  exit 1
+fi</code></pre>
+
+<h3 id="loops">Loops</h3>
+
+<pre><code>for f in *.txt; do
+  echo "processing $f"
+  mv "$f" "processed_$f"
+done
+
+for i in {1..5}; do echo "attempt $i"; done
+
+for host in web-01 web-02 db-01; do
+  ssh "$host" 'uptime'
+done
+
+# read a file line by line — note the quoting and IFS
+while IFS= read -r line; do
+  echo "line: $line"
+done &lt; servers.txt
+
+# loop until something succeeds
+until curl -sf http://localhost:8080/health &gt;/dev/null; do
+  echo "waiting for service..."
+  sleep 2
+done</code></pre>
+
+<p><code>while IFS= read -r line</code> is the correct incantation for reading a file line by line: <code>IFS=</code> stops leading and trailing whitespace being stripped, and <code>-r</code> stops backslashes being interpreted. Memorize it as a unit.</p>
+
+<div class="box warn">
+  <span class="label">Do not loop over <code>ls</code></span>
+  <p><code>for f in $(ls)</code> breaks on any filename containing a space or a glob character. <code>for f in *</code> is both simpler and correct, because glob expansion produces properly separated words. For recursive work, use <code>find -print0</code> with <code>while IFS= read -r -d '' f</code>.</p>
+</div>
+
+<h3 id="case">case</h3>
+
+<pre><code>case "$1" in
+  start)   echo "starting..." ;;
+  stop)    echo "stopping..." ;;
+  restart) echo "restarting..." ;;
+  *)       echo "usage: $0 {start|stop|restart}" &gt;&amp;2; exit 1 ;;
+esac</code></pre>
+
+<p>Cleaner than a chain of <code>elif</code> when you are matching one variable against several literal values, and it supports globs in the patterns (<code>*.txt)</code>).</p>
+
+<h3 id="functions">Functions</h3>
+
+<pre><code>log() {
+  echo "[$(date +%H:%M:%S)] $*" &gt;&amp;2
+}
+
+backup() {
+  local src="$1"
+  local dest="${2:-/backup}"
+  mkdir -p "$dest"
+  tar -czf "$dest/$(basename "$src")-$(date +%F).tar.gz" "$src"
+}
+
+log "starting backup"
+backup /etc /backup
+log "done"</code></pre>
+
+<p>Functions take arguments the same way scripts do: <code>$1</code>, <code>$2</code>, <code>$@</code>. <strong>Always declare variables inside functions with <code>local</code></strong> — without it they are global, and a function that quietly overwrites the caller's <code>$i</code> is a genuinely nasty bug to track down.</p>
+
+<h3 id="robust">Making it robust</h3>
+
+<pre><code>#!/usr/bin/env bash
+set -euo pipefail
+
+# clean up on exit, however we exit
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+# require an argument
+target="${1:?usage: $0 TARGET}"
+
+# check dependencies up front
+for cmd in curl jq tar; do
+  command -v "$cmd" &gt;/dev/null || { echo "missing: $cmd" &gt;&amp;2; exit 1; }
+done
+
+echo "working in $tmpdir on $target"</code></pre>
+
+<p><code>trap ... EXIT</code> runs the cleanup whether the script finishes, fails, or is interrupted — the shell equivalent of a <code>finally</code> block. Combined with <code>mktemp -d</code>, it means your script never leaves debris behind.</p>
+
+<div class="box tip">
+  <span class="label">Two habits worth adopting immediately</span>
+  <p>Run <code>shellcheck yourscript.sh</code> before you trust any script. It catches unquoted variables, useless <code>cat</code>s, and a dozen subtle bugs, and it explains each one. And run with <code>bash -x script.sh</code> when debugging — it prints every command with its variables expanded, which usually makes the problem obvious in seconds.</p>
+</div>
+
+<h3 id="full-example">A complete example</h3>
+
+<pre><code>#!/usr/bin/env bash
+#
+# rotate-logs.sh — compress logs older than N days, delete ones older than M
+#
+set -euo pipefail
+
+LOG_DIR="${1:-/var/log/myapp}"
+COMPRESS_AFTER_DAYS=7
+DELETE_AFTER_DAYS=90
+
+log() { echo "[$(date +'%F %T')] $*"; }
+
+[[ -d "$LOG_DIR" ]] || { log "no such directory: $LOG_DIR"; exit 1; }
+
+log "rotating logs in $LOG_DIR"
+
+compressed=$(find "$LOG_DIR" -name '*.log' -type f \
+               -mtime +"$COMPRESS_AFTER_DAYS" -print | wc -l)
+find "$LOG_DIR" -name '*.log' -type f -mtime +"$COMPRESS_AFTER_DAYS" \
+     -exec gzip {} +
+
+deleted=$(find "$LOG_DIR" -name '*.log.gz' -type f \
+            -mtime +"$DELETE_AFTER_DAYS" -print | wc -l)
+find "$LOG_DIR" -name '*.log.gz' -type f -mtime +"$DELETE_AFTER_DAYS" -delete
+
+log "compressed $compressed, deleted $deleted"</code></pre>
+
+<div class="box lab">
+  <span class="label">Lab 11 · Scripting</span>
+  <p>Write these into <code>~/shell-lab/scripts/</code> and make each executable.</p>
+  <ol>
+    <li><code>greet.sh</code> — takes a name as an argument and prints "Hello, NAME". If no argument is given, print a usage message to stderr and exit 1.</li>
+    <li><code>count.sh</code> — takes a directory, prints how many files it contains. Error out if the argument is missing or is not a directory.</li>
+    <li><code>ext.sh</code> — loops over every file in <code>data/</code> and prints its name and extension, using parameter expansion rather than <code>cut</code>.</li>
+    <li><code>levels.sh</code> — reads <code>logs/app.log</code> line by line and counts how many lines contain <code>ERROR</code>, <code>WARN</code>, and <code>INFO</code>, printing a summary at the end.</li>
+    <li><code>backup.sh</code> — takes a directory, creates a timestamped <code>.tar.gz</code> of it in a temp directory, then copies the archive into <code>~/shell-lab/archive/</code>. Use <code>trap</code> to clean up the temp directory.</li>
+    <li><code>svc.sh</code> — accepts <code>start</code>, <code>stop</code>, or <code>status</code> using <code>case</code>, printing what it would do. Anything else prints usage and exits 1.</li>
+    <li>Run <code>bash -x</code> on one of your scripts and read the trace. Then run <code>shellcheck</code> on all of them and fix what it reports.</li>
+  </ol>
+</div>
+
+<h3 id="q11">Questions</h3>
+
+<details><summary>What does each letter in <code>set -euo pipefail</code> actually prevent?</summary>
+<div class="ans"><p><code>-e</code> prevents the script from continuing after a failed command — without it, a failed <code>cd</code> is followed cheerfully by the next line. <code>-u</code> prevents typo'd or unset variable names expanding to an empty string, which is the mechanism behind most catastrophic <code>rm</code> accidents. <code>pipefail</code> prevents <code>false | true</code> from reporting success, which otherwise hides failures in the middle of a pipeline. Together they turn silent wrong behavior into a loud stop.</p></div></details>
+
+<details><summary>Why <code>#!/usr/bin/env bash</code> rather than <code>#!/bin/bash</code>?</summary>
+<div class="ans"><p><code>env</code> looks bash up in PATH, so the script works on systems where bash is not at <code>/bin/bash</code> — macOS with Homebrew bash 5, BSDs, Nix. The tradeoff is that it uses whichever bash comes first in PATH, which in a security-sensitive context (a setuid script, a cron job with a controlled environment) may be an argument for the absolute path. For everyday scripts, <code>env</code> is the better default.</p></div></details>
+
+<details><summary>Why is <code>for f in $(ls)</code> wrong?</summary>
+<div class="ans"><p>Command substitution output is subject to word splitting, so a file named <code>my report.txt</code> becomes two iterations, and a file named <code>*</code> gets glob-expanded into every filename in the directory. <code>for f in *</code> avoids both: glob expansion produces a properly delimited list regardless of what the names contain. The only wrinkle is that <code>*</code> stays literal if nothing matches, so guard with <code>[[ -e "$f" ]] || continue</code> when that matters.</p></div></details>
+
+<details><summary>What does <code>local</code> do and why does it matter?</summary>
+<div class="ans"><p>It scopes a variable to the function. Without it every assignment is global, so a function using <code>i</code> as a loop counter will silently clobber the caller's <code>i</code> — and the bug shows up as wrong results rather than an error. Declare every variable in every function <code>local</code> unless you specifically intend to modify global state.</p></div></details>
+
+<details><summary>How do you make sure a temp directory is removed even if the script fails halfway?</summary>
+<div class="ans"><p><code>tmpdir=$(mktemp -d)</code> then <code>trap 'rm -rf "$tmpdir"' EXIT</code>. The EXIT trap fires on normal exit, on <code>set -e</code> aborts, and on SIGINT/SIGTERM, so cleanup happens on every path out of the script. Add other signals explicitly if you need to distinguish them: <code>trap cleanup EXIT INT TERM</code>.</p></div></details>
+
+<details><summary>Your script works when you run it but fails from cron. Most likely cause?</summary>
+<div class="ans"><p>The environment. Cron runs with a minimal PATH (often just <code>/usr/bin:/bin</code>) and does not read your <code>.bashrc</code>, so commands you rely on are not found and variables you assume are unset. The fixes: use absolute paths for programs, set <code>PATH</code> explicitly at the top of the script, and never depend on the working directory — <code>cd</code> to where you mean to be. Redirecting output to a log file (<code>&gt;&gt; /var/log/myjob.log 2&gt;&amp;1</code>) is what lets you see the error at all.</p></div></details>

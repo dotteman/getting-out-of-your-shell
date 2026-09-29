@@ -1,0 +1,131 @@
+<h2 id="ch8"><span class="chapnum">Chapter 8</span>Permissions and Ownership</h2>
+
+<p>Every file has an owner, a group, and nine permission bits. Once the notation clicks, this stops being mysterious.</p>
+
+<h3 id="reading-perms">Reading the bits</h3>
+
+<pre><code class="plain">-rwxr-xr--  1 dave  developers  4096 Aug 14 09:03 deploy.sh
+ └─┬─┘└┬┘└┬┘    └─┬─┘  └───┬────┘
+   │   │  │       │        └ group
+   │   │  │       └ owner
+   │   │  └ others: r-- (read only)
+   │   └ group:   r-x (read, execute)
+   └ owner:       rwx (read, write, execute)</code></pre>
+
+<table>
+  <tr><th>Bit</th><th>On a file</th><th>On a directory</th></tr>
+  <tr><td><code>r</code> (4)</td><td>read its contents</td><td>list its contents</td></tr>
+  <tr><td><code>w</code> (2)</td><td>modify it</td><td>create/delete files inside it</td></tr>
+  <tr><td><code>x</code> (1)</td><td>run it as a program</td><td>enter it (<code>cd</code>) and access files inside</td></tr>
+</table>
+
+<p>The directory column is the part people get wrong. You can delete a file you have no write permission on, provided you can write to the directory containing it — the permission that matters is on the <em>directory entry</em>, not the file. And a directory with <code>r</code> but no <code>x</code> lets you see names but not read anything inside.</p>
+
+<h3 id="chmod">chmod: changing permissions</h3>
+
+<p>Two notations, both worth knowing. <strong>Symbolic</strong> is readable and relative:</p>
+
+<pre><code>$ chmod +x script.sh          # make executable (for everyone, subject to umask)
+$ chmod u+x script.sh         # executable by the owner only
+$ chmod g-w file.txt          # remove write from the group
+$ chmod o-rwx secret.txt      # others get nothing
+$ chmod a+r public.txt        # everyone can read
+$ chmod u=rw,go=r file.txt    # set exactly, don't add or subtract</code></pre>
+
+<p><strong>Numeric</strong> is terse and absolute. Add the values: r=4, w=2, x=1.</p>
+
+<table>
+  <tr><th>Number</th><th>Means</th><th>Typical use</th></tr>
+  <tr><td><code>644</code></td><td>rw-r--r--</td><td>ordinary file: owner edits, everyone reads</td></tr>
+  <tr><td><code>755</code></td><td>rwxr-xr-x</td><td>script or directory: everyone can run/enter</td></tr>
+  <tr><td><code>600</code></td><td>rw-------</td><td>private file: keys, credentials</td></tr>
+  <tr><td><code>700</code></td><td>rwx------</td><td>private directory</td></tr>
+  <tr><td><code>664</code></td><td>rw-rw-r--</td><td>shared with your group</td></tr>
+  <tr><td><code>777</code></td><td>rwxrwxrwx</td><td>almost always a mistake</td></tr>
+</table>
+
+<pre><code>$ chmod 644 notes.txt
+$ chmod 755 deploy.sh
+$ chmod 600 ~/.ssh/id_ed25519      # ssh refuses to use a key with looser permissions
+$ chmod -R 755 public_html/         # recursive</code></pre>
+
+<div class="box warn">
+  <span class="label">Two things to avoid</span>
+  <p><code>chmod 777</code> means anyone on the system can modify the file. It is almost never the actual fix for a permission problem; it is a way of not diagnosing one. And <code>chmod -R 755</code> on a tree containing files will mark every data file executable — use <code>find . -type d -exec chmod 755 {} +</code> and <code>find . -type f -exec chmod 644 {} +</code> to treat directories and files differently.</p>
+</div>
+
+<h3 id="ownership">chown: changing owner and group</h3>
+
+<pre><code>$ sudo chown dave file.txt              # change owner
+$ sudo chown dave:developers file.txt   # change owner and group
+$ sudo chown :developers file.txt       # change group only
+$ sudo chgrp developers file.txt        # same thing
+$ sudo chown -R www-data:www-data /var/www/</code></pre>
+
+<p>Only root can give a file away to another user, which is why <code>chown</code> almost always needs <code>sudo</code>.</p>
+
+<h3 id="whoami">Who am I, really</h3>
+
+<pre><code>$ whoami
+dave
+$ id
+uid=1000(dave) gid=1000(dave) groups=1000(dave),27(sudo),999(docker)
+$ groups
+dave sudo docker</code></pre>
+
+<p>Group membership is evaluated at login. If someone adds you to a group, you will not have it until you log out and back in — a frequent source of "but I <em>am</em> in the docker group" confusion.</p>
+
+<h3 id="sudo">sudo</h3>
+
+<pre><code>$ sudo systemctl restart nginx      # run one command as root
+$ sudo -i                            # start an interactive root shell
+$ sudo -u postgres psql              # run as some other user
+$ sudo !!                            # rerun your last command with sudo</code></pre>
+
+<p>That last one is a history expansion — <code>!!</code> means "the previous command line" — and it is the single most-used trick in this book once you know it.</p>
+
+<div class="box tip">
+  <span class="label">Prefer <code>sudo cmd</code> over <code>sudo -i</code></span>
+  <p>A root shell has no seatbelt and no record of what you did in it. Running individual commands with <code>sudo</code> keeps each one logged and keeps your default state unprivileged, so a mistyped <code>rm</code> is merely annoying instead of fatal.</p>
+</div>
+
+<h3 id="umask">umask: default permissions</h3>
+
+<pre><code>$ umask
+0022
+$ touch new.txt &amp;&amp; ls -l new.txt
+-rw-r--r--  1 dave  staff  0 Aug 14 09:30 new.txt</code></pre>
+
+<p><code>umask</code> subtracts from the maximum default (666 for files, 777 for directories). With umask 022: 666 − 022 = 644 for a new file, 755 for a new directory. That is why new files are never executable by default — a sensible safety property.</p>
+
+<div class="box lab">
+  <span class="label">Lab 8 · Locking things down</span>
+  <p>Work inside <code>~/shell-lab</code>.</p>
+  <ol>
+    <li>Show the permissions of everything in <code>scripts/</code> in long format.</li>
+    <li>Make <code>scripts/backup.sh</code> executable by its owner only, then run it with <code>./scripts/backup.sh</code>.</li>
+    <li>Set <code>conf/secrets.env</code> so only its owner can read or write it. Verify with <code>ls -l</code>.</li>
+    <li>Express <code>rw-r-----</code> in numeric notation, then apply it to <code>data/sales_2026.csv</code>.</li>
+    <li>Create a directory <code>private/</code> that nobody but you can enter.</li>
+    <li>Using <code>find</code>, set every <em>directory</em> under <code>data/</code> to 755 and every <em>file</em> to 644, in two commands.</li>
+    <li>Print your user id, group id, and every group you belong to.</li>
+    <li>What is your current umask? Create a file and confirm the permissions match what the umask predicts.</li>
+  </ol>
+</div>
+
+<h3 id="q8">Questions</h3>
+
+<details><summary>Translate <code>chmod 750</code> into words.</summary>
+<div class="ans"><p>Owner 7 = 4+2+1 = read, write, execute. Group 5 = 4+1 = read and execute, no write. Others 0 = nothing at all. So: <code>rwxr-x---</code>. A common setting for a script that a team runs but outsiders should not even see the contents of.</p></div></details>
+
+<details><summary>You have read permission on a file but cannot open it. What is likely wrong?</summary>
+<div class="ans"><p>You lack execute (<code>x</code>) permission on one of the directories in its path. To reach <code>/a/b/c/file</code> you need <code>x</code> on <code>/a</code>, <code>/a/b</code>, and <code>/a/b/c</code> — execute on a directory means "may traverse". Check with <code>namei -l /a/b/c/file</code>, which shows the permissions at every level of the path.</p></div></details>
+
+<details><summary>Why can you delete a file you do not own and have no write permission on?</summary>
+<div class="ans"><p>Deleting removes a name from a directory, so the permission checked is <code>w</code> on the <em>containing directory</em>, not on the file. This is why <code>/tmp</code> has the "sticky bit" (<code>drwxrwxrwt</code> — note the <code>t</code>): it is world-writable, but the sticky bit restricts deletion to the file's owner. Without it, anyone could clear out everyone else's temp files.</p></div></details>
+
+<details><summary>Your script fails with "permission denied" even though you can read it. Two possible causes?</summary>
+<div class="ans"><p>Either the file is not executable (<code>chmod +x script.sh</code>), or the filesystem it lives on is mounted <code>noexec</code> — common for <code>/tmp</code> on hardened systems. A third, sneakier cause: the shebang line points at an interpreter that does not exist, which some shells report as a confusingly similar error. As a workaround you can always run <code>bash script.sh</code>, which does not require the execute bit.</p></div></details>
+
+<details><summary>Why does <code>ssh</code> refuse your private key?</summary>
+<div class="ans"><p>Because its permissions are too open. SSH requires the private key be readable only by you — <code>chmod 600 ~/.ssh/id_ed25519</code> — and the <code>~/.ssh</code> directory be <code>700</code>. It refuses rather than warns, on the reasoning that a key other users can read is already compromised.</p></div></details>

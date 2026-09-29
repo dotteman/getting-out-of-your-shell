@@ -1,0 +1,169 @@
+<h2 id="ch12"><span class="chapnum">Chapter 12</span>Working Fast</h2>
+
+<p>The last 20% is not new commands — it is the friction between you and the ones you know. This chapter is a collection of things that each save a few seconds, several dozen times a day.</p>
+
+<h3 id="editing">Editing the command line</h3>
+
+<p>Bash uses readline, which has emacs keybindings by default. These work at every bash prompt and in most REPLs (psql, python, node):</p>
+
+<table>
+  <tr><th>Keys</th><th>Does</th></tr>
+  <tr><td><code>Ctrl-A</code> / <code>Ctrl-E</code></td><td>jump to start / end of line</td></tr>
+  <tr><td><code>Alt-B</code> / <code>Alt-F</code></td><td>back / forward one word</td></tr>
+  <tr><td><code>Ctrl-W</code></td><td>delete the word before the cursor</td></tr>
+  <tr><td><code>Ctrl-U</code> / <code>Ctrl-K</code></td><td>delete to start / end of line</td></tr>
+  <tr><td><code>Ctrl-Y</code></td><td>paste back what you just deleted</td></tr>
+  <tr><td><code>Ctrl-R</code></td><td>reverse search through history</td></tr>
+  <tr><td><code>Ctrl-L</code></td><td>clear the screen</td></tr>
+  <tr><td><code>Ctrl-C</code> / <code>Ctrl-D</code></td><td>cancel this line / end of input</td></tr>
+  <tr><td><code>Alt-.</code></td><td>insert the last argument of the previous command</td></tr>
+</table>
+
+<p>Two of these carry most of the value. <strong>Ctrl-R</strong> to find any command you have run before, and <strong>Ctrl-U then Ctrl-Y</strong> to stash a half-typed command, run something else, then paste it back.</p>
+
+<h3 id="history-tricks">History expansion</h3>
+
+<pre><code>$ sudo !!               # rerun the last command with sudo
+$ !$                     # the last argument of the previous line
+$ mkdir /a/long/path &amp;&amp; cd !$      # ...becomes cd /a/long/path
+$ ^typo^fixed            # rerun the last command with one substitution
+$ !ssh                   # last command that started with ssh
+$ !ssh:p                 # print it without running it — check before you leap</code></pre>
+
+<h3 id="archives">Archives and transfers</h3>
+
+<pre><code>$ tar -czf archive.tar.gz dir/     # create gzipped archive
+$ tar -xzf archive.tar.gz          # extract
+$ tar -tzf archive.tar.gz          # list contents without extracting
+$ tar -xzf archive.tar.gz -C /dest # extract somewhere specific
+
+$ scp file.txt user@host:/path/    # copy to a remote machine
+$ scp user@host:/path/file.txt .   # copy from one
+$ rsync -avz --progress src/ user@host:/dest/   # sync, resumable, only changes
+$ rsync -avz --dry-run src/ dest/  # show what WOULD happen</code></pre>
+
+<p>Remember tar's flags as a sentence: <strong>c</strong>reate or e<strong>x</strong>tract or lis<strong>t</strong>, <strong>z</strong> for gzip, <strong>f</strong> for "the filename follows". <code>-f</code> must come last because the filename is its argument.</p>
+
+<p><code>rsync</code> beats <code>scp</code> for anything nontrivial: it transfers only the differences, resumes after an interruption, and <code>--dry-run</code> lets you check first. The trailing slash on the source means "the contents of", and getting it wrong is the classic rsync mistake.</p>
+
+<h3 id="network">Network basics</h3>
+
+<pre><code>$ curl -s https://api.example.com/status | jq .
+$ curl -I https://example.com                  # headers only
+$ curl -fsSL -o file.tar.gz https://host/f.tgz # fail loudly, follow redirects
+$ curl -X POST -H "Content-Type: application/json" \
+       -d '{"key":"value"}' https://api.example.com/items
+
+$ ssh user@host                       # log in
+$ ssh user@host 'df -h'               # run one command and come back
+$ ssh -i ~/.ssh/id_ed25519 user@host  # with a specific key
+$ ssh-copy-id user@host               # install your key so you stop typing passwords
+
+$ ss -tulpn        # listening ports
+$ dig example.com +short
+$ ping -c 4 example.com
+$ traceroute example.com</code></pre>
+
+<p><code>curl -fsSL</code> is worth memorizing as a unit: <strong>f</strong>ail on HTTP errors instead of saving the error page, <strong>s</strong>ilent, <strong>S</strong>how errors anyway, <strong>L</strong> follow redirects.</p>
+
+<h3 id="ssh-config">SSH config</h3>
+
+<p>Put this in <code>~/.ssh/config</code> and stop retyping connection details:</p>
+
+<pre><code>Host prod
+    HostName 10.0.4.21
+    User deploy
+    IdentityFile ~/.ssh/id_prod
+    ServerAliveInterval 60
+
+Host *.internal
+    User admin
+    ProxyJump bastion.example.com</code></pre>
+
+<pre><code>$ ssh prod          # instead of ssh -i ~/.ssh/id_prod deploy@10.0.4.21</code></pre>
+
+<p>Tab completion works on these host names, and <code>scp</code>, <code>rsync</code>, and <code>git</code> all respect the file too.</p>
+
+<h3 id="scheduling">Scheduling</h3>
+
+<pre><code>$ crontab -e         # edit your scheduled jobs
+$ crontab -l         # list them</code></pre>
+
+<pre><code class="plain"># ┌─ minute (0-59)
+# │ ┌─ hour (0-23)
+# │ │ ┌─ day of month (1-31)
+# │ │ │ ┌─ month (1-12)
+# │ │ │ │ ┌─ day of week (0-6, Sunday = 0)
+# │ │ │ │ │
+  0 2 * * *   /home/dave/bin/backup.sh &gt;&gt; /var/log/backup.log 2&gt;&amp;1
+  */15 * * * * /home/dave/bin/check.sh
+  0 9 * * 1   /home/dave/bin/weekly-report.sh</code></pre>
+
+<p>Three rules that prevent the usual cron pain: use absolute paths for everything, redirect output to a log file (otherwise it is emailed into the void), and test the script by running it with a stripped environment first: <code>env -i /bin/bash --noprofile --norc /path/to/script.sh</code>.</p>
+
+<h3 id="misc">A handful of things worth knowing exist</h3>
+
+<pre><code>$ !!                      # you know this one now
+$ cd -                     # previous directory
+$ pushd /tmp ; popd        # a directory stack, for hopping around
+$ time ./slow.sh           # how long did that take
+$ watch -n2 'df -h /'      # rerun a command every 2 seconds
+$ yes | some-command       # answer y to everything
+$ seq 1 10                 # generate a sequence
+$ shuf -n 5 lines.txt      # random sample
+$ column -t -s, data.csv   # align CSV into readable columns
+$ jq '.items[].name' r.json # query JSON properly
+$ base64 -w0 file          # encode
+$ openssl rand -hex 16     # a random token
+$ df -h; free -h; uptime   # the three-command health check</code></pre>
+
+<div class="box tip">
+  <span class="label">The compounding habit</span>
+  <p>Every time you type a long command a second time, stop and decide: alias, function, or script? A one-liner you use daily becomes an alias. A parameterized one becomes a shell function in <code>.bashrc</code>. Anything longer than five lines becomes a script in <code>~/bin</code>. Twenty minutes spent on this in your first month pays back for years.</p>
+</div>
+
+<h3 id="what-next">Where to go from here</h3>
+
+<p>You now have the 20%. The natural next steps, roughly in order of payoff:</p>
+
+<ul>
+  <li><strong>tmux</strong> — persistent sessions and split panes. An afternoon to learn, permanent benefit.</li>
+  <li><strong>vim or nano</strong> — you will eventually need to edit a file on a machine with nothing else. Learn enough vim to open, edit, save, and quit: <code>i</code> to insert, <code>Esc</code>, <code>:wq</code> to write and quit, <code>:q!</code> to bail out.</li>
+  <li><strong>ripgrep, fd, fzf, bat</strong> — modern replacements for grep, find, and cat. <code>fzf</code> in particular transforms Ctrl-R.</li>
+  <li><strong>shellcheck</strong> — install it, run it on everything you write.</li>
+  <li><strong>jq</strong> — once your pipelines start touching APIs, jq is to JSON what awk is to columns.</li>
+  <li><strong><a href="https://mywiki.wooledge.org/BashPitfalls">Bash Pitfalls</a></strong> and the <strong><a href="https://mywiki.wooledge.org/BashFAQ">Bash FAQ</a></strong> — the best free references for the things that will bite you.</li>
+</ul>
+
+<div class="box lab">
+  <span class="label">Lab 12 · Speed run</span>
+  <ol>
+    <li>Run <code>ls -la /etc</code>, then rerun it with <code>sudo</code> using two keystrokes.</li>
+    <li>Type a long path with <code>mkdir -p</code>, then <code>cd</code> into it without retyping the path.</li>
+    <li>Use Ctrl-R to find and rerun a command from Lab 5.</li>
+    <li>Create a gzipped tar of <code>~/shell-lab/data</code>, list its contents without extracting, then extract it into a new directory.</li>
+    <li>Use <code>rsync --dry-run</code> to preview syncing <code>data/</code> into <code>data_mirror/</code>, then do it for real.</li>
+    <li>Time how long <code>find ~ -type f | wc -l</code> takes.</li>
+    <li>Use <code>watch</code> to display free disk space refreshing every two seconds. Quit it.</li>
+    <li>Add an <code>~/.ssh/config</code> entry (real or fictional) and confirm <code>ssh &lt;name&gt;</code> tab-completes.</li>
+    <li>Write a cron entry that runs <code>~/shell-lab/scripts/backup.sh</code> every day at 03:30 and logs its output.</li>
+    <li>Pick the command you have typed most often this week and turn it into an alias or a function in your <code>.bashrc</code>.</li>
+  </ol>
+</div>
+
+<h3 id="q12">Questions</h3>
+
+<details><summary>What is the difference between <code>scp</code> and <code>rsync</code>?</summary>
+<div class="ans"><p><code>scp</code> copies everything, every time, and starts over if interrupted. <code>rsync</code> compares source and destination and transfers only the differences, can resume, preserves permissions and timestamps with <code>-a</code>, compresses in flight with <code>-z</code>, and offers <code>--dry-run</code>. For a single small file <code>scp</code> is fine; for a directory or anything you will repeat, use <code>rsync</code>.</p></div></details>
+
+<details><summary>Why does a cron job fail when the same script works from your shell?</summary>
+<div class="ans"><p>Cron gives the job a nearly empty environment: a minimal PATH, no <code>.bashrc</code>, no <code>DISPLAY</code>, and the home directory as the working directory. Anything your interactive shell set up for you is absent. Diagnose it by capturing output — add <code>&gt;&gt; /tmp/job.log 2&gt;&amp;1</code> to the crontab line — and fix it by setting PATH at the top of the script and using absolute paths throughout.</p></div></details>
+
+<details><summary>What do the flags in <code>tar -xzf</code> mean, and why must <code>-f</code> come last?</summary>
+<div class="ans"><p><code>x</code> extract, <code>z</code> decompress with gzip, <code>f</code> the archive filename follows. <code>-f</code> takes the next word as its argument, so anything after it is treated as the filename. <code>tar -xfz archive.tar.gz</code> tries to open a file literally named <code>z</code>.</p></div></details>
+
+<details><summary>You need to run a 6-hour job on a remote server over a flaky connection. What do you do?</summary>
+<div class="ans"><p>SSH in, start <code>tmux</code> (or <code>screen</code>), run the job inside it, and detach with <code>Ctrl-b d</code>. The session keeps running on the server independently of your connection; reattach later with <code>tmux attach</code>. <code>nohup job &amp;</code> also survives the disconnect but gives you no way to interact with the job afterwards, which matters when it prompts or when you want to watch it.</p></div></details>
+
+<details><summary>What is the single fastest way to reuse a command you ran an hour ago?</summary>
+<div class="ans"><p><code>Ctrl-R</code>, then type any distinctive fragment of it — press Ctrl-R again to step further back through matches, Enter to run, or → to load it into the line for editing. It beats pressing ↑ forty times and beats <code>history | grep</code> because it puts the result straight onto your command line.</p></div></details>

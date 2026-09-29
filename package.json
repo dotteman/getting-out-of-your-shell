@@ -1,0 +1,15 @@
+{
+  "name": "getting-out-of-your-shell",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A short, practical book on the Linux bash shell, with an interactive edition that runs a bash simulator in the browser.",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "test": "node test/test.js && node test/smoke.js && node test/seed-parity.mjs",
+    "test:browser": "node test/browser-smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

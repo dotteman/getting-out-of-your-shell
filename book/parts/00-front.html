@@ -1,0 +1,51 @@
+<header class="cover">
+  <h1>Getting Out of Your Shell</h1>
+  <p class="sub">The 20% of bash that does 80% of the work.</p>
+  <p><span class="pill">12 chapters</span><span class="pill">12 labs</span><span class="pill">Answer key</span><span class="pill">Cheat sheet</span></p>
+  <p class="lede">A short, practical book for people who have opened a terminal, felt vaguely uneasy, and closed it again. By the end you will move around a Linux system with confidence, chain commands together, edit text without opening an editor, manage processes and permissions, and write scripts that other people can read.</p>
+</header>
+
+<h2 id="how-to-use">How to Use This Book</h2>
+
+<p>Every chapter follows the same shape: a short explanation, commands you can actually type, a <strong>lab</strong> that gives you something concrete to do, and a handful of <strong>questions</strong> whose answers are hidden until you click them. Do the labs. Reading about the shell is like reading about swimming.</p>
+
+<p>You need a Linux or macOS terminal, or WSL on Windows. Check that you are running bash:</p>
+
+<pre><code>$ echo $SHELL
+/bin/bash
+$ bash --version
+GNU bash, version 5.2.21(1)-release</code></pre>
+
+<p>If it says <code>zsh</code> (the default on modern macOS), almost everything here still works — zsh is bash-compatible for the 80% this book covers. Where it matters, the text says so. To follow along in real bash on a Mac, just type <code>bash</code> to start one.</p>
+
+<div class="box tip">
+  <span class="label">Set up your sandbox first</span>
+  <p>Every lab runs inside one throwaway directory so you can experiment without fear. <a href="#setup-script">Appendix B</a> contains a setup script that builds it — copy that script into a file called <code>setup.sh</code>, then run:</p>
+<pre><code>$ bash setup.sh
+Sandbox ready at: /home/dave/shell-lab
+$ cd ~/shell-lab</code></pre>
+  <p>Do this before Lab 1. To start over at any point, <code>rm -rf ~/shell-lab</code> and run it again.</p>
+</div>
+
+<h3 id="conventions">Conventions</h3>
+
+<p>A line beginning with <code>$</code> is something <em>you</em> type; the <code>$</code> is the prompt and is not part of the command. Lines without it are output. Text in <code>ANGLE_BRACKETS</code> or written as <code>FILE</code> is a placeholder you replace with a real value.</p>
+
+<h3 id="contents">Contents</h3>
+
+<div class="toc-grid" id="frontmatter-toc">
+  <a href="#ch1">1 · The Shell in Ten Minutes</a>
+  <a href="#ch2">2 · Moving Around</a>
+  <a href="#ch3">3 · Creating, Copying, Destroying</a>
+  <a href="#ch4">4 · Looking Inside Files</a>
+  <a href="#ch5">5 · Pipes and Redirection</a>
+  <a href="#ch6">6 · Finding Things</a>
+  <a href="#ch7">7 · grep, sed, and awk</a>
+  <a href="#ch8">8 · Permissions and Ownership</a>
+  <a href="#ch9">9 · Processes and Jobs</a>
+  <a href="#ch10">10 · The Environment and Quoting</a>
+  <a href="#ch11">11 · Writing Scripts</a>
+  <a href="#ch12">12 · Working Fast</a>
+  <a href="#appendix-a">Appendix A · Cheat Sheet</a>
+  <a href="#appendix-b">Appendix B · Lab Setup &amp; Answer Key</a>
+</div>

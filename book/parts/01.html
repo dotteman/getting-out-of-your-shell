@@ -1,0 +1,107 @@
+<h2 id="ch1"><span class="chapnum">Chapter 1</span>The Shell in Ten Minutes</h2>
+
+<p>The shell is a program that reads what you type, runs it, and prints the result. That is the whole idea. When you open a terminal you get a shell — usually <strong>bash</strong> — sitting in a loop, waiting.</p>
+
+<p>What makes it worth learning is not any single command. It is that every command is a small tool that reads text and writes text, and the shell lets you connect them. Once you internalize that, a hundred commands become a combinatorial toolkit instead of a hundred things to memorize.</p>
+
+<h3 id="the-prompt">Reading the prompt</h3>
+
+<p>A typical prompt looks like this:</p>
+
+<pre><code class="plain">dave@web-01:~/projects/api$ </code></pre>
+
+<p>Four pieces of information: your username, the machine you are on, the directory you are in (<code>~</code> means your home directory), and a <code>$</code> meaning you are an ordinary user. A <code>#</code> instead of <code>$</code> means you are root — pay attention when you see it.</p>
+
+<h3 id="anatomy">Anatomy of a command</h3>
+
+<pre><code>$ ls -l --color=auto /var/log
+  │   │       │          │
+  │   │       │          └─ argument: what to operate on
+  │   │       └─ long option with a value
+  │   └─ short option (flags can bundle: -la is -l -a)
+  └─ the command</code></pre>
+
+<p>Three rules cover nearly all syntax you will meet:</p>
+
+<ul>
+  <li><strong>Whitespace separates arguments.</strong> <code>rm my file.txt</code> deletes two files, not one. Quote names with spaces: <code>rm "my file.txt"</code>.</li>
+  <li><strong>Short options are single letters</strong> with one dash and can be combined: <code>ls -l -a -h</code> equals <code>ls -lah</code>. <strong>Long options</strong> use two dashes and are not combinable: <code>--human-readable</code>.</li>
+  <li><strong>Order usually does not matter</strong> for options, but arguments are positional: <code>cp SOURCE DEST</code> is not the same as <code>cp DEST SOURCE</code>.</li>
+</ul>
+
+<h3 id="first-commands">The first six commands</h3>
+
+<pre><code>$ pwd              # where am I?
+/home/dave
+$ ls               # what is here?
+Documents  Downloads  projects  notes.txt
+$ cd projects      # go somewhere
+$ whoami           # who am I logged in as?
+dave
+$ date             # what time is it (on this machine)?
+Fri Aug 14 09:12:44 PDT 2026
+$ clear            # wipe the screen (Ctrl-L does the same)</code></pre>
+
+<h3 id="getting-help">Getting help without leaving the terminal</h3>
+
+<p>You will not remember every flag, and you are not supposed to. Learn the three ways to look things up instead.</p>
+
+<table>
+  <tr><th>Command</th><th>What it gives you</th></tr>
+  <tr><td><code>man ls</code></td><td>The full manual page. Press <code>/</code> to search, <code>n</code> for next match, <code>q</code> to quit.</td></tr>
+  <tr><td><code>ls --help</code></td><td>A one-screen summary. Faster than <code>man</code> for "what was that flag again?"</td></tr>
+  <tr><td><code>help cd</code></td><td>For shell <em>builtins</em> like <code>cd</code>, <code>export</code>, <code>if</code> — these have no man page of their own.</td></tr>
+  <tr><td><code>type ls</code></td><td>Tells you whether something is a builtin, an alias, a function, or a program on disk.</td></tr>
+  <tr><td><code>apropos compress</code></td><td>Searches man page descriptions when you don't know the command's name.</td></tr>
+</table>
+
+<pre><code>$ type cd
+cd is a shell builtin
+$ type ls
+ls is aliased to `ls --color=auto'
+$ type -a python3
+python3 is /usr/bin/python3</code></pre>
+
+<div class="box tip">
+  <span class="label">Tip</span>
+  <p><code>man</code> pages are dense but predictably organized: NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXAMPLES. Many people jump straight to the bottom — <code>G</code> in the pager — because the EXAMPLES section is often all you need.</p>
+</div>
+
+<h3 id="four-keys">Four keys that pay for themselves today</h3>
+
+<ul>
+  <li><strong>Tab</strong> — completes commands, filenames, and paths. Press it constantly. Press it twice to see all matches. This is not a convenience feature; it is your defense against typos in destructive commands.</li>
+  <li><strong>↑ / ↓</strong> — walk back through commands you already ran.</li>
+  <li><strong>Ctrl-C</strong> — kill the command that is currently running. Use it when something hangs.</li>
+  <li><strong>Ctrl-D</strong> — end of input. On an empty prompt it logs you out of the shell.</li>
+</ul>
+
+<div class="box warn">
+  <span class="label">Careful</span>
+  <p>The shell has no undo and no recycle bin. <code>rm</code> means gone. The habit that saves you: type the command with <code>ls</code> first, look at what it matches, then change <code>ls</code> to <code>rm</code> by pressing ↑ and editing. Chapter 3 goes deeper.</p>
+</div>
+
+<div class="box lab">
+  <span class="label">Lab 1 · Orientation</span>
+  <ol>
+    <li>Open a terminal. Print your current directory, your username, and the machine's name (<code>hostname</code>).</li>
+    <li>Find out whether <code>echo</code> is a builtin or a program on disk.</li>
+    <li>Use <code>ls --help</code> to find the flag that sorts files by modification time, then run it on your home directory.</li>
+    <li>Open the manual for <code>date</code>, search inside it for the string <code>%Y</code>, and use what you find to print today's date as <code>2026-08-14</code>.</li>
+    <li>Type <code>sleep 60</code>, then get your prompt back without waiting a minute.</li>
+  </ol>
+</div>
+
+<h3 id="q1">Questions</h3>
+
+<details><summary>What is the difference between a shell builtin and a regular command?</summary>
+<div class="ans"><p>A builtin is implemented inside bash itself (<code>cd</code>, <code>export</code>, <code>echo</code>, <code>test</code>); a regular command is a separate executable file the shell finds and runs (<code>ls</code> at <code>/usr/bin/ls</code>). It matters for two reasons: builtins have no man page (use <code>help</code>), and only builtins can change the shell's own state — which is why <code>cd</code> <em>must</em> be a builtin. An external program could never change your shell's current directory.</p></div></details>
+
+<details><summary>Why does <code>ls -lah</code> work but <code>ls --human-readable-all</code> not?</summary>
+<div class="ans"><p>Single-dash short options are single characters, so bash-era tools let you bundle them: <code>-lah</code> is parsed as three separate flags. Double-dash long options are whole words and each needs its own <code>--</code>: <code>ls --human-readable --all</code>.</p></div></details>
+
+<details><summary>You typed a long command and it is hanging. What do you press, and what if that does not work?</summary>
+<div class="ans"><p><strong>Ctrl-C</strong> sends the interrupt signal (SIGINT) and stops most programs. If the program ignores it, <strong>Ctrl-Z</strong> suspends it and gives you your prompt back, after which you can kill it (Chapter 9). If your terminal itself is garbled rather than hung, <code>reset</code> repairs it.</p></div></details>
+
+<details><summary>What does <code>~</code> mean, and what is <code>~/projects</code>?</summary>
+<div class="ans"><p><code>~</code> expands to your home directory, typically <code>/home/yourname</code> (or <code>/Users/yourname</code> on macOS). So <code>~/projects</code> is <code>/home/dave/projects</code>. <code>~otheruser</code> expands to <em>that</em> user's home directory. The expansion is done by the shell before the command ever sees it.</p></div></details>

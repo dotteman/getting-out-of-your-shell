@@ -1,0 +1,102 @@
+<h2 id="ch3"><span class="chapnum">Chapter 3</span>Creating, Copying, Destroying</h2>
+
+<p>Six commands cover essentially all file management: <code>mkdir</code>, <code>touch</code>, <code>cp</code>, <code>mv</code>, <code>rm</code>, <code>ln</code>. They are simple. The care goes into not destroying things.</p>
+
+<h3 id="creating">Creating</h3>
+
+<pre><code>$ mkdir reports                 # one directory
+$ mkdir -p a/b/c                # create parents as needed; no error if it exists
+$ touch notes.txt               # create an empty file, or update its timestamp
+$ touch f{1..3}.txt             # f1.txt f2.txt f3.txt</code></pre>
+
+<p><code>-p</code> is worth a habit. It makes <code>mkdir</code> <em>idempotent</em>: running it twice is harmless, which is exactly what you want in a script.</p>
+
+<h3 id="copying">Copying and moving</h3>
+
+<pre><code>$ cp notes.txt notes.bak            # copy to a new name
+$ cp notes.txt ~/backup/            # copy into a directory, keeping the name
+$ cp -r project/ project-copy/      # -r for directories (recursive)
+$ cp -a project/ project-copy/      # -a: recursive AND preserve times, owner, permissions
+$ cp -i important.conf /etc/        # -i: prompt before overwriting
+$ mv draft.txt final.txt            # rename
+$ mv *.log logs/                    # move many files into a directory
+$ mv -n a.txt b/                    # -n: never overwrite</code></pre>
+
+<p><code>mv</code> is both "rename" and "move" — on the same filesystem it just rewrites a directory entry, which is why moving a 40 GB file within one disk is instant while copying it is not.</p>
+
+<div class="box warn">
+  <span class="label">The trailing-slash trap</span>
+  <p><code>cp -r src dest</code> behaves differently depending on whether <code>dest</code> already exists: if it does, you get <code>dest/src</code>; if it does not, <code>src</code> is copied <em>to</em> <code>dest</code>. When you care about the distinction, use <code>rsync</code>, whose rules are explicit: <code>rsync -a src/ dest/</code> (with the trailing slash on the source) copies the <em>contents</em>.</p>
+</div>
+
+<h3 id="deleting">Deleting, carefully</h3>
+
+<pre><code>$ rm oldfile.txt
+$ rm -r olddir/            # recursive: directory and everything inside
+$ rm -f stubborn.txt       # force: no prompts, no error if missing
+$ rmdir emptydir/          # only works if the directory is empty — a useful safety net</code></pre>
+
+<p>There is no trash can. <code>rm</code> unlinks the file and the space is reclaimed. Three habits that prevent almost every accident:</p>
+
+<ol>
+  <li><strong>Look before you delete.</strong> Run the pattern with <code>ls</code> first, then press ↑ and change <code>ls</code> to <code>rm</code>.</li>
+  <li><strong>Never type <code>rm -rf</code> with a variable or a glob you have not just inspected.</strong> <code>rm -rf "$DIR"/*</code> where <code>$DIR</code> is accidentally empty means <code>rm -rf /*</code>.</li>
+  <li><strong>Prefer <code>rmdir</code> when you expect empty.</strong> If it refuses, something is in there you did not know about.</li>
+</ol>
+
+<pre><code>$ ls old_reports_*.csv          # 1. inspect
+old_reports_2024.csv  old_reports_2025.csv
+$ rm old_reports_*.csv          # 2. same pattern, now with rm</code></pre>
+
+<div class="box tip">
+  <span class="label">Tip</span>
+  <p>Adding <code>alias rm='rm -i'</code> to your <code>.bashrc</code> is tempting but teaches you to reflexively hit <code>y</code>, which is worse. A better habit: put junk in <code>/tmp</code> so it cleans itself up, and use <code>-i</code> deliberately when it matters.</p>
+</div>
+
+<h3 id="links">Links</h3>
+
+<pre><code>$ ln -s /var/log/nginx/access.log access.log   # symbolic link (a pointer by path)
+$ ls -l access.log
+lrwxr-xr-x  1 dave  staff  29 Aug 14 09:20 access.log -&gt; /var/log/nginx/access.log
+$ ln data.csv data-hard.csv                    # hard link (a second name for the same data)</code></pre>
+
+<p>A <strong>symlink</strong> points at a path; if the target moves, the link breaks. A <strong>hard link</strong> is a second directory entry for the same underlying data, so the data survives until every name is removed. In practice you will use symlinks ninety-nine times out of a hundred — for pointing <code>current</code> at <code>release-2026-08-14</code>, for instance.</p>
+
+<h3 id="wildcards-in-anger">Batch operations</h3>
+
+<pre><code>$ cp *.txt backup/                     # everything matching, into a directory
+$ mv report_*.pdf 2026/                # tidy by pattern
+$ for f in *.jpeg; do mv "$f" "${f%.jpeg}.jpg"; done   # rename extensions in bulk</code></pre>
+
+<p>That last one uses a loop and parameter expansion — both covered in Chapter 11. It reads as: for each file ending in <code>.jpeg</code>, move it to the same name with the <code>.jpeg</code> suffix stripped and <code>.jpg</code> appended. Note the quotes around <code>"$f"</code>: without them, a filename with a space breaks the command.</p>
+
+<div class="box lab">
+  <span class="label">Lab 3 · File surgery</span>
+  <p>Work inside <code>~/shell-lab</code>.</p>
+  <ol>
+    <li>Create a directory <code>staging</code> with subdirectories <code>in</code>, <code>out</code>, and <code>err</code> in a single command.</li>
+    <li>Copy every <code>.csv</code> from <code>data/</code> into <code>staging/in/</code>.</li>
+    <li>Rename <code>staging/in/sales_2026.csv</code> to <code>staging/in/sales_2026_backup.csv</code>.</li>
+    <li>Make a full recursive copy of <code>data/</code> called <code>data_snapshot/</code>, preserving timestamps.</li>
+    <li>Create a symlink called <code>latest-log</code> that points at <code>logs/app.log</code>. Confirm with <code>ls -l</code> that it is a link.</li>
+    <li>Delete <code>staging/err</code> using a command that would <em>refuse</em> if the directory were not empty.</li>
+    <li>List (do not delete) every file in <code>data_snapshot/</code> that ends in <code>.tmp</code>, then delete them.</li>
+  </ol>
+</div>
+
+<h3 id="q3">Questions</h3>
+
+<details><summary>Why does <code>mkdir -p</code> matter in scripts?</summary>
+<div class="ans"><p>Without <code>-p</code>, <code>mkdir</code> fails with a non-zero exit code if the directory already exists, which will abort a script running under <code>set -e</code>. With <code>-p</code> it succeeds silently whether or not the directory is there, and creates any missing parent directories. That property — same result no matter how many times you run it — is called idempotence and is the backbone of reliable automation.</p></div></details>
+
+<details><summary>What is actually different between <code>cp -r</code> and <code>cp -a</code>?</summary>
+<div class="ans"><p><code>-r</code> copies the tree but the copies get fresh timestamps and your ownership/umask. <code>-a</code> ("archive") is <code>-r</code> plus preservation of modification times, permissions, ownership, and symlinks (copying links as links rather than following them). Use <code>-a</code> for backups and deployments; <code>-r</code> is fine for scratch copies.</p></div></details>
+
+<details><summary>You run <code>rm -rf $BUILD_DIR/*</code> and <code>BUILD_DIR</code> was never set. What happens, and how do you prevent it?</summary>
+<div class="ans"><p>The variable expands to nothing, so the command becomes <code>rm -rf /*</code> — it tries to delete everything on the system it has permission to touch. Prevention, in order of usefulness: <code>set -u</code> at the top of every script (unset variables become an error), always quote (<code>"$BUILD_DIR"</code>), and use <code>${BUILD_DIR:?BUILD_DIR is required}</code> which aborts with a message if the variable is empty or unset.</p></div></details>
+
+<details><summary>Your symlink shows in red in <code>ls</code> output. Why?</summary>
+<div class="ans"><p>It is broken — the path it points to no longer exists. Symlinks store a path, not a reference to the data, so moving or deleting the target leaves the link dangling. <code>ls -l</code> still shows you where it was pointing, and <code>readlink -f link</code> resolves it.</p></div></details>
+
+<details><summary>Why is moving a large file within one disk instant, but copying it slow?</summary>
+<div class="ans"><p><code>mv</code> within a single filesystem only updates directory entries — the file's data never moves. Across filesystems (say from your disk to a USB stick), <code>mv</code> has no such shortcut: it copies the data and then deletes the original, so it takes as long as <code>cp</code>.</p></div></details>

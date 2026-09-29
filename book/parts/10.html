@@ -1,0 +1,174 @@
+<h2 id="ch10"><span class="chapnum">Chapter 10</span>The Environment and Quoting</h2>
+
+<p>Two topics that look unrelated but are the same subject: what the shell knows, and what the shell does to your text before running it.</p>
+
+<h3 id="variables">Variables</h3>
+
+<pre><code>$ name="Dave"              # no spaces around the = sign. None.
+$ echo "$name"
+Dave
+$ echo "${name}s laptop"   # braces disambiguate where the name ends
+$ unset name</code></pre>
+
+<p>A variable set this way is local to your shell. <code>export</code> makes it part of the <em>environment</em>, which means child processes inherit it:</p>
+
+<pre><code>$ export API_URL="https://api.example.com"
+$ printenv API_URL
+$ env | sort | less              # everything currently exported
+$ API_KEY=secret ./script.sh     # set it for one command only</code></pre>
+
+<table>
+  <tr><th>Variable</th><th>Holds</th></tr>
+  <tr><td><code>$PATH</code></td><td>colon-separated directories searched for commands</td></tr>
+  <tr><td><code>$HOME</code></td><td>your home directory</td></tr>
+  <tr><td><code>$USER</code></td><td>your username</td></tr>
+  <tr><td><code>$PWD</code></td><td>current directory</td></tr>
+  <tr><td><code>$SHELL</code></td><td>your login shell</td></tr>
+  <tr><td><code>$EDITOR</code></td><td>which editor other programs should open</td></tr>
+  <tr><td><code>$?</code></td><td>exit code of the last command</td></tr>
+  <tr><td><code>$$</code></td><td>PID of the current shell</td></tr>
+  <tr><td><code>$0</code></td><td>name of the running script</td></tr>
+</table>
+
+<h3 id="path">PATH</h3>
+
+<pre><code>$ echo $PATH
+/usr/local/bin:/usr/bin:/bin:/usr/sbin
+$ which python3
+/usr/bin/python3
+$ export PATH="$HOME/bin:$PATH"    # prepend, so your version wins</code></pre>
+
+<p>When you type <code>python3</code>, bash walks PATH left to right and runs the first match. This explains two everyday mysteries: "command not found" for a program you know is installed (its directory is not in PATH), and "why is it running the wrong version" (an earlier PATH entry wins).</p>
+
+<div class="box warn">
+  <span class="label">Never put <code>.</code> in your PATH</span>
+  <p>If the current directory is searched for commands, then <code>cd</code>-ing into a directory someone else can write to and typing <code>ls</code> may run <em>their</em> <code>ls</code>. This is why running a script in the current directory requires the explicit <code>./script.sh</code>.</p>
+</div>
+
+<h3 id="quoting">Quoting: the rules that cause the most bugs</h3>
+
+<table>
+  <tr><th>Form</th><th>Behavior</th></tr>
+  <tr><td><code>'single'</code></td><td>everything is literal. No expansion of any kind.</td></tr>
+  <tr><td><code>"double"</code></td><td>expands <code>$variables</code>, <code>$(commands)</code>, and backslashes; protects spaces and globs.</td></tr>
+  <tr><td>no quotes</td><td>expands everything, <em>and</em> splits on whitespace, <em>and</em> expands globs.</td></tr>
+</table>
+
+<pre><code>$ file="my report.txt"
+$ ls $file          # ls sees TWO arguments: "my" and "report.txt" — fails
+$ ls "$file"        # ls sees one argument — works
+$ echo '$HOME'
+$HOME
+$ echo "$HOME"
+/home/dave</code></pre>
+
+<p>The rule that will serve you for years: <strong>double-quote every variable expansion unless you have a specific reason not to.</strong> Filenames with spaces, empty variables, and values containing <code>*</code> all break unquoted code, and they break at the worst possible moment.</p>
+
+<pre><code>$ rm $file          # if file="" this becomes bare `rm` — harmless
+$ rm -rf $dir/*     # if dir="" this becomes `rm -rf /*` — catastrophic
+$ rm -rf "$dir"/*   # if dir="" this errors out safely</code></pre>
+
+<h3 id="expansion-order">What bash does before running your command</h3>
+
+<p>Understanding the order removes most surprises. Bash processes a line roughly like this:</p>
+
+<ol>
+  <li><strong>Brace expansion</strong> — <code>{a,b}</code> becomes <code>a b</code></li>
+  <li><strong>Tilde expansion</strong> — <code>~</code> becomes <code>/home/dave</code></li>
+  <li><strong>Parameter expansion</strong> — <code>$VAR</code> becomes its value</li>
+  <li><strong>Command substitution</strong> — <code>$(cmd)</code> becomes cmd's output</li>
+  <li><strong>Word splitting</strong> — unquoted results split on whitespace</li>
+  <li><strong>Glob expansion</strong> — <code>*.txt</code> becomes the matching filenames</li>
+  <li><strong>Redirection</strong> is set up, then the command finally runs</li>
+</ol>
+
+<p>Two consequences you will meet in practice. First, a variable's value <em>is</em> re-split and glob-expanded at step 5 and 6 — which is exactly why quoting matters. Second, redirection happens last, in your shell, which is why <code>sudo cmd &gt; /root/file</code> fails (Chapter 5).</p>
+
+<h3 id="param-expansion">Parameter expansion tricks</h3>
+
+<pre><code>$ f="report.tar.gz"
+$ echo "${f%.gz}"        # strip shortest match from the END   -&gt; report.tar
+$ echo "${f%%.*}"        # strip longest match from the END    -&gt; report
+$ echo "${f#report.}"    # strip shortest from the START       -&gt; tar.gz
+$ echo "${#f}"           # length                              -&gt; 14
+$ echo "${f/tar/TAR}"    # replace first occurrence
+$ echo "${name:-guest}"  # use "guest" if name is unset or empty
+$ echo "${name:?must be set}"   # abort with a message if unset</code></pre>
+
+<p>These avoid spawning <code>basename</code>, <code>sed</code>, or <code>cut</code> for trivial string surgery, which matters inside loops.</p>
+
+<h3 id="rc-files">Making it stick: .bashrc</h3>
+
+<p>Settings typed at the prompt vanish when you close the terminal. To make them permanent, put them in <code>~/.bashrc</code>.</p>
+
+<pre><code># ~/.bashrc
+
+export EDITOR=vim
+export PATH="$HOME/bin:$PATH"
+
+alias ll='ls -lah'
+alias ..='cd ..'
+alias gs='git status'
+alias grep='grep --color=auto'
+
+# a function, for when an alias isn't enough
+mkcd() { mkdir -p "$1" &amp;&amp; cd "$1"; }
+
+# bigger history, no duplicates, appended not overwritten
+HISTSIZE=50000
+HISTFILESIZE=50000
+HISTCONTROL=ignoreboth:erasedups
+shopt -s histappend</code></pre>
+
+<pre><code>$ source ~/.bashrc      # apply without opening a new terminal
+$ . ~/.bashrc           # same thing, shorter</code></pre>
+
+<p><code>~/.bashrc</code> runs for every interactive non-login shell — new terminal windows. <code>~/.bash_profile</code> runs for login shells (SSH sessions, console logins). The conventional fix is to have <code>.bash_profile</code> source <code>.bashrc</code> so you only maintain one file. On macOS with zsh, the equivalent file is <code>~/.zshrc</code>.</p>
+
+<h3 id="history">History</h3>
+
+<pre><code>$ history | tail -n 20
+$ history | grep docker      # what was that command last week?
+$ !!                          # last command
+$ sudo !!                     # last command, with sudo
+$ !342                        # command number 342
+$ !ssh                        # most recent command starting with ssh
+$ !$                          # last argument of the previous command
+$ Ctrl-R                      # interactive reverse search — type a few chars</code></pre>
+
+<p><strong>Ctrl-R</strong> is the one to build a habit around. Press it, type any fragment of a command you ran before, press Ctrl-R again to cycle further back, Enter to run or → to edit. It replaces most of what people use ↑ for.</p>
+
+<div class="box lab">
+  <span class="label">Lab 10 · Environment</span>
+  <ol>
+    <li>Set a variable <code>PROJECT</code> to <code>shell-lab</code> and print it. Then start a new bash (<code>bash</code>) and check whether it survived. Explain the result.</li>
+    <li>Export it, start a subshell, and check again.</li>
+    <li>Print your PATH one directory per line (hint: <code>tr</code>).</li>
+    <li>Create <code>~/bin</code>, put a one-line script called <code>hello</code> in it, make it executable, add <code>~/bin</code> to your PATH, and run <code>hello</code> from anywhere.</li>
+    <li>Create a file whose name contains a space. Write one <code>ls</code> that fails on it and one that works.</li>
+    <li>Given <code>f="backup.tar.gz"</code>, use parameter expansion alone to print <code>backup</code>.</li>
+    <li>Add an alias <code>ll='ls -lah'</code> to your <code>.bashrc</code>, apply it without opening a new terminal, and confirm it works.</li>
+    <li>Use Ctrl-R to find a command you ran earlier in this lab.</li>
+    <li>Explain the difference in output between <code>echo '$USER'</code> and <code>echo "$USER"</code>.</li>
+  </ol>
+</div>
+
+<h3 id="q10">Questions</h3>
+
+<details><summary>Why does <code>name = "Dave"</code> fail?</summary>
+<div class="ans"><p>Bash splits on whitespace, so it reads <code>name</code> as a command and <code>=</code> and <code>"Dave"</code> as its arguments — hence "name: command not found". Assignment requires no spaces: <code>name="Dave"</code>. This is unlike essentially every programming language, and it catches everyone once.</p></div></details>
+
+<details><summary>What is the difference between setting a variable and exporting it?</summary>
+<div class="ans"><p>A plain assignment lives only in the current shell. <code>export</code> puts it in the environment, which is copied into every child process the shell spawns. So a script you run cannot see <code>FOO=bar</code> but can see <code>export FOO=bar</code>. Note that the flow is one-way: a child can never modify its parent's environment, which is why a script cannot change your working directory unless you <code>source</code> it.</p></div></details>
+
+<details><summary>When is it correct to leave a variable unquoted?</summary>
+<div class="ans"><p>Rarely, and always deliberately: when you actually want word splitting — for example <code>FLAGS="-v -x"; cmd $FLAGS</code> to pass two separate flags. Even then, a bash array (<code>flags=(-v -x); cmd "${flags[@]}"</code>) is the more robust construction. Inside <code>[[ ]]</code>, bash suppresses splitting, so quoting is optional there — but quoting anyway costs nothing.</p></div></details>
+
+<details><summary>You added a directory to PATH in <code>.bashrc</code> but the command still is not found in your open terminal. Why?</summary>
+<div class="ans"><p><code>.bashrc</code> is read when a shell starts. Existing shells never re-read it. Run <code>source ~/.bashrc</code> in the open terminal, or open a new one. If it still fails, check with <code>echo $PATH</code> that the export actually took, and with <code>ls -l</code> that the target file is executable.</p></div></details>
+
+<details><summary>What does <code>${VAR:-default}</code> do, and how is it different from <code>${VAR:?message}</code>?</summary>
+<div class="ans"><p><code>${VAR:-default}</code> substitutes <code>default</code> when <code>VAR</code> is unset or empty, leaving <code>VAR</code> itself unchanged — it is how you give a script an optional argument. <code>${VAR:?message}</code> instead prints the message to stderr and exits with an error when <code>VAR</code> is unset or empty — it is how you declare a required argument in one line. Both are worth committing to memory.</p></div></details>
+
+<details><summary>Why is <code>rm -rf "$dir"/*</code> safer than <code>rm -rf $dir/*</code>?</summary>
+<div class="ans"><p>If <code>$dir</code> is empty or unset, the unquoted version collapses to <code>rm -rf /*</code> — the shell removes the empty word entirely, leaving a leading slash. The quoted version expands to <code>rm -rf ""/*</code>, which is not a valid path and fails harmlessly. Add <code>set -u</code> to your scripts and the unset case becomes an error before it ever reaches <code>rm</code>.</p></div></details>

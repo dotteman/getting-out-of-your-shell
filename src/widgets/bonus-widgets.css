@@ -1,0 +1,175 @@
+/* ---- Bonus widgets: chmod calculator, quoting sandbox, script runner ---- */
+
+/* Palette. Defined as custom properties so the widgets can follow the book's
+   own light/dark scheme instead of hardcoding a light background and then
+   inheriting dark-mode text on top of it. The book defines --bg/--fg/--rule/
+   --accent/--accent-soft for both schemes in the same document; these tokens
+   sit alongside them. */
+:root {
+  --w-bg: #fbfcfe;
+  --w-fg: #232a35;
+  --w-muted: #555c6b;
+  --w-rule: #d7dae2;
+  --w-head-bg: #eef1f7;
+  --w-head-fg: #333a4d;
+  --w-field-bg: #ffffff;
+  --w-field-fg: #1e1f29;
+  --w-field-rule: #c7cbd6;
+  --w-console-bg: #1e1f29;
+  --w-console-fg: #e6e6ea;
+  --w-console-dim: #a9adbe;
+  --w-run-bg: #2e8b57;
+  --w-run-bg-hover: #256e46;
+  --w-run-rule: #2e6b46;
+  --w-run-fg: #ffffff;
+  --w-clear-bg: #eef1f7;
+  --w-clear-fg: #333a4d;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --w-bg: #1e1b15;
+    --w-fg: #ece6dc;
+    --w-muted: #c0b6a6;
+    --w-rule: #3a342b;
+    --w-head-bg: #2a251d;
+    --w-head-fg: #f2ece2;
+    --w-field-bg: #12100c;
+    --w-field-fg: #ece6dc;
+    --w-field-rule: #4d453a;
+    --w-console-bg: #0f0e0c;
+    --w-console-fg: #e8e2da;
+    --w-console-dim: #a09689;
+    --w-run-bg: #2f7a4f;
+    --w-run-bg-hover: #389161;
+    --w-run-rule: #48a06a;
+    --w-run-fg: #ffffff;
+    --w-clear-bg: #2a251d;
+    --w-clear-fg: #ece6dc;
+  }
+}
+
+.widget-box {
+  margin: 1.5em 0;
+  border: 1px solid var(--w-rule);
+  border-radius: 10px;
+  background: var(--w-bg);
+  color: var(--w-fg);
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+.widget-box-title {
+  background: var(--w-head-bg);
+  border-bottom: 1px solid var(--w-rule);
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--w-head-fg);
+}
+.widget-box-body { padding: 14px 16px; }
+.widget-box code { color: inherit; }
+.widget-hint { font-size: 13px; color: var(--w-muted); margin-bottom: 8px; }
+
+/* chmod calculator */
+.chmod-cols { display: flex; gap: 18px; flex-wrap: wrap; }
+.chmod-col { text-align: center; }
+.chmod-col h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--w-muted); text-transform: uppercase; letter-spacing: .04em; }
+.chmod-col label { display: block; font-size: 13px; margin: 3px 0; cursor: pointer; color: var(--w-fg); }
+.chmod-fname-row { margin-top: 10px; font-size: 13px; color: var(--w-muted); }
+.chmod-result {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--w-console-bg);
+  color: var(--w-console-fg);
+  border-radius: 8px;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 14px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.chmod-result .octal { color: #ffbd2e; font-weight: bold; font-size: 18px; }
+.chmod-result .sym { color: #7ee7c7; }
+.chmod-result .cmd { color: #7db8ff; }
+.chmod-filename {
+  font: 13px Consolas, Menlo, monospace;
+  border: 1px solid var(--w-field-rule);
+  border-radius: 5px;
+  padding: 3px 6px;
+  width: 120px;
+  background: var(--w-field-bg);
+  color: var(--w-field-fg);
+}
+
+/* quoting sandbox */
+.quote-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: 13.5px Consolas, Menlo, monospace;
+  padding: 7px 9px;
+  border: 1px solid var(--w-field-rule);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: var(--w-field-bg);
+  color: var(--w-field-fg);
+}
+.quote-cols { display: flex; gap: 14px; flex-wrap: wrap; }
+.quote-col { flex: 1 1 240px; min-width: 220px; }
+.quote-col h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--w-muted); }
+.quote-col .cmdline { color: var(--w-muted); font: 12.5px Consolas, Menlo, monospace; margin-bottom: 4px; }
+.quote-col pre {
+  background: var(--w-console-bg);
+  color: var(--w-console-fg);
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 0;
+  font-size: 13px;
+  min-height: 1.4em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* script runner */
+.scriptrun-area {
+  width: 100%;
+  box-sizing: border-box;
+  font: 13px Consolas, Menlo, monospace;
+  padding: 10px;
+  border: 1px solid var(--w-field-rule);
+  border-radius: 8px;
+  min-height: 110px;
+  resize: vertical;
+  background: var(--w-field-bg);
+  color: var(--w-field-fg);
+}
+.scriptrun-buttons { margin: 8px 0; display: flex; gap: 8px; }
+.scriptrun-run, .scriptrun-clear {
+  font: 12.5px -apple-system, sans-serif;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--w-run-rule);
+  background: var(--w-run-bg);
+  color: var(--w-run-fg);
+  cursor: pointer;
+}
+.scriptrun-clear { background: var(--w-clear-bg); color: var(--w-clear-fg); border-color: var(--w-field-rule); }
+.scriptrun-run:hover { background: var(--w-run-bg-hover); }
+.scriptrun-out {
+  background: var(--w-console-bg);
+  color: var(--w-console-fg);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font: 13px Consolas, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1.4em;
+}
+.scriptrun-out .err { color: #ff8080; }
+.scriptrun-out .trunc { color: var(--w-console-dim); font-style: italic; }
+
+/* Last word on the native form controls, so checkboxes and text carets are
+   painted for the scheme the widget is actually using. */
+@media (prefers-color-scheme: dark) {
+  .widget-box { color-scheme: dark; }
+}

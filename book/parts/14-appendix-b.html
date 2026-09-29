@@ -1,0 +1,210 @@
+<h2 id="appendix-b"><span class="chapnum">Appendix B</span>Lab Setup and Answer Key</h2>
+
+<h3 id="setup-script">The setup script</h3>
+
+<p>Save this as <code>setup.sh</code> and run <code>bash setup.sh</code>. It creates <code>~/shell-lab</code> with every file the labs reference. Run it again any time you want a clean slate (delete <code>~/shell-lab</code> first).</p>
+
+<pre><code>__SETUP_SCRIPT__</code></pre>
+
+<div class="box tip">
+  <span class="label">Reset at any time</span>
+<pre><code>$ rm -rf ~/shell-lab &amp;&amp; bash setup.sh</code></pre>
+</div>
+
+<h3 id="answers">Answers</h3>
+
+<p>Several labs have more than one correct answer. If yours differs but produces the right result, it is right.</p>
+
+<h4>Lab 1 · Orientation</h4>
+<pre><code>$ pwd; whoami; hostname
+$ type echo                          # echo is a shell builtin
+$ ls --help | grep -i 'time'         # finds -t
+$ ls -lt ~
+$ man date                           # then /%Y, then q
+$ date +%F                           # 2026-08-14
+$ sleep 60                           # then press Ctrl-C</code></pre>
+
+<h4>Lab 2 · Navigation</h4>
+<pre><code>$ ls -lhtr logs/
+$ cd ../data                         # from ~/shell-lab/logs
+$ cd -
+$ ls data/*2026*.csv
+$ mkdir -p archive/2026/{q1,q2,q3,q4}
+$ du -sh */ | sort -h | tail -n 1    # data/ is the largest
+$ ls -ld ~/.[!.]*                    # or: ls -a ~ | grep '^\.'</code></pre>
+
+<h4>Lab 3 · File surgery</h4>
+<pre><code>$ mkdir -p staging/{in,out,err}
+$ cp data/*.csv staging/in/
+$ mv staging/in/sales_2026.csv staging/in/sales_2026_backup.csv
+$ cp -a data/ data_snapshot/
+$ ln -s logs/app.log latest-log &amp;&amp; ls -l latest-log
+$ rmdir staging/err                  # refuses if non-empty
+$ ls data_snapshot/**/*.tmp 2&gt;/dev/null; find data_snapshot -name '*.tmp'
+$ find data_snapshot -name '*.tmp' -delete</code></pre>
+
+<h4>Lab 4 · Reading</h4>
+<pre><code>$ head -n 5 data/sales_2026.csv
+$ tail -n 3 logs/app.log
+$ head -n 14 logs/app.log | tail -n 5      # lines 10-14
+$ wc -l logs/app.log                        # 21
+$ wc -w logs/app.log                        # 156
+$ less logs/app.log                         # G, then ?ERROR, then q
+$ diff -u conf/nginx.conf conf/nginx.conf.new
+$ file data/mystery                         # gzip compressed data
+$ ls data/*.csv | wc -l                     # 3</code></pre>
+
+<h4>Lab 5 · Plumbing</h4>
+<pre><code>$ grep ERROR logs/app.log | wc -l           # 4  (grep -c is simpler)
+$ ls data/ &gt; manifest.txt
+$ date &gt;&gt; manifest.txt
+$ ls /does/not/exist 2&gt; err.txt
+$ cut -d' ' -f3 logs/app.log | sort | uniq -c | sort -rn | head -n 5
+$ wc -l logs/app.log | tee count.txt
+$ find data -name '*.tmp' -print0 | xargs -0 rm
+$ mkdir "$(date +%F)" &amp;&amp; mv manifest.txt "$(date +%F)/"</code></pre>
+<p>Log-level counts: 9 INFO, 5 DEBUG, 4 ERROR, 3 WARN.</p>
+
+<h4>Lab 6 · Search and rescue</h4>
+<pre><code>$ find . -name '*.log'
+$ find . -maxdepth 2 -mtime -1
+$ find . -type d -name tmp
+$ find data/ -type f -size +1k              # data/bigfile.dat
+$ grep -n -C2 ERROR logs/app.log
+$ grep -vc DEBUG logs/app.log               # 16
+$ grep -rl timeout conf/
+$ find . -name '*.sh' -print0 | xargs -0 chmod +x</code></pre>
+
+<h4>Lab 7 · Text wrangling</h4>
+<pre><code>$ awk -F, 'NR&gt;1 {print $2}' data/sales_2026.csv
+$ awk -F, 'NR&gt;1 {print $2}' data/sales_2026.csv | sort | uniq -c | sort -rn
+$ awk -F, 'NR&gt;1 {s+=$5} END {printf "%.2f\n", s}' data/sales_2026.csv
+$ awk -F, 'NR&gt;1 &amp;&amp; $4 &gt; 50' data/sales_2026.csv
+$ awk -F, 'NR&gt;1 {s+=$5; n++} END {printf "%.2f\n", s/n}' data/sales_2026.csv
+$ sed -i.bak 's/worker_processes 2/worker_processes 4/' conf/nginx.conf
+$ sed -e '/^[[:space:]]*#/d' -e '/^$/d' conf/nginx.conf
+$ awk '{print $3}' logs/app.log | sort | uniq -c | sort -rn
+$ tr 'a-z' 'A-Z' &lt; data/names.txt | tr ' ' '\n'</code></pre>
+<p>Region counts: north 5, south 4, west 3, east 3. Revenue total: 31505.00. Rows with units &gt; 50: six. Average revenue: 2100.33.</p>
+
+<h4>Lab 8 · Locking things down</h4>
+<pre><code>$ ls -l scripts/
+$ chmod u+x scripts/backup.sh &amp;&amp; ./scripts/backup.sh
+$ chmod 600 conf/secrets.env &amp;&amp; ls -l conf/secrets.env
+$ chmod 640 data/sales_2026.csv              # rw-r----- = 640
+$ mkdir private &amp;&amp; chmod 700 private
+$ find data -type d -exec chmod 755 {} +
+$ find data -type f -exec chmod 644 {} +
+$ id
+$ umask; touch t &amp;&amp; ls -l t                  # 022 -&gt; 644</code></pre>
+
+<h4>Lab 9 · Process control</h4>
+<pre><code>$ ps aux --sort=-%mem | head -n 6
+$ sleep 300 &amp; jobs; pgrep -a sleep
+$ fg %1        # Ctrl-Z to suspend
+$ bg %1
+$ kill %1
+$ sleep 300 &amp; kill $!                        # $! is the last background PID
+$ sleep 300    # Ctrl-Z, then:  ps -o pid,stat,cmd | grep sleep   -&gt; state T
+$ pgrep -a sleep
+$ uptime; free -h; df -h
+$ sudo lsof -i :22        # or: sudo ss -tulpn | grep :22
+$ nohup ./scripts/slow.sh &gt; slow.log 2&gt;&amp;1 &amp;</code></pre>
+
+<h4>Lab 10 · Environment</h4>
+<pre><code>$ PROJECT=shell-lab; echo "$PROJECT"
+$ bash -c 'echo "${PROJECT:-not set}"'       # not set — plain vars aren't inherited
+$ export PROJECT; bash -c 'echo "$PROJECT"'  # shell-lab
+$ echo "$PATH" | tr ':' '\n'
+$ mkdir -p ~/bin
+$ printf '#!/usr/bin/env bash\necho hello from ~/bin\n' &gt; ~/bin/hello
+$ chmod +x ~/bin/hello
+$ export PATH="$HOME/bin:$PATH" &amp;&amp; hello
+$ touch "my file.txt"
+$ f="my file.txt"; ls $f      # fails: two arguments
+$ ls "$f"                     # works
+$ f="backup.tar.gz"; echo "${f%%.*}"          # backup
+$ echo "alias ll='ls -lah'" &gt;&gt; ~/.bashrc &amp;&amp; source ~/.bashrc &amp;&amp; ll</code></pre>
+<p>Question 9: <code>echo '$USER'</code> prints the literal text <code>$USER</code>; <code>echo "$USER"</code> prints your username. Single quotes suppress all expansion.</p>
+
+<h4>Lab 11 · Scripting</h4>
+<pre><code>#!/usr/bin/env bash
+# greet.sh
+set -euo pipefail
+name="${1:?usage: $0 NAME}"
+echo "Hello, $name"</code></pre>
+
+<pre><code>#!/usr/bin/env bash
+# count.sh
+set -euo pipefail
+dir="${1:?usage: $0 DIRECTORY}"
+[[ -d "$dir" ]] || { echo "not a directory: $dir" &gt;&amp;2; exit 1; }
+n=$(find "$dir" -maxdepth 1 -type f | wc -l)
+echo "$dir contains $n files"</code></pre>
+
+<pre><code>#!/usr/bin/env bash
+# ext.sh
+set -euo pipefail
+for f in data/*; do
+  [[ -f "$f" ]] || continue
+  base="${f##*/}"                 # strip the path
+  ext="${base##*.}"               # strip everything up to the last dot
+  [[ "$ext" == "$base" ]] &amp;&amp; ext="(none)"
+  printf '%-24s %s\n' "$base" "$ext"
+done</code></pre>
+
+<pre><code>#!/usr/bin/env bash
+# levels.sh
+set -euo pipefail
+declare -i err=0 warn=0 info=0
+while IFS= read -r line; do
+  case "$line" in
+    *ERROR*) err+=1 ;;
+    *WARN*)  warn+=1 ;;
+    *INFO*)  info+=1 ;;
+  esac
+done &lt; logs/app.log
+echo "ERROR=$err WARN=$warn INFO=$info"     # ERROR=4 WARN=3 INFO=9</code></pre>
+
+<pre><code>#!/usr/bin/env bash
+# backup.sh
+set -euo pipefail
+src="${1:?usage: $0 DIRECTORY}"
+[[ -d "$src" ]] || { echo "no such directory: $src" &gt;&amp;2; exit 1; }
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+name="$(basename "$src")-$(date +%F).tar.gz"
+tar -czf "$tmp/$name" "$src"
+mkdir -p "$HOME/shell-lab/archive"
+cp "$tmp/$name" "$HOME/shell-lab/archive/"
+echo "wrote archive/$name"</code></pre>
+
+<pre><code>#!/usr/bin/env bash
+# svc.sh
+set -euo pipefail
+case "${1:-}" in
+  start)  echo "would start the service"  ;;
+  stop)   echo "would stop the service"   ;;
+  status) echo "would report status"      ;;
+  *)      echo "usage: $0 {start|stop|status}" &gt;&amp;2; exit 1 ;;
+esac</code></pre>
+
+<h4>Lab 12 · Speed run</h4>
+<pre><code>$ ls -la /etc
+$ sudo !!
+$ mkdir -p ~/shell-lab/a/deep/path &amp;&amp; cd !$
+$ Ctrl-R  then type part of the command
+$ tar -czf data.tgz data/
+$ tar -tzf data.tgz
+$ mkdir restore &amp;&amp; tar -xzf data.tgz -C restore/
+$ rsync -av --dry-run data/ data_mirror/
+$ rsync -av data/ data_mirror/
+$ time (find ~ -type f | wc -l)
+$ watch -n2 'df -h /'                        # q to quit
+$ printf 'Host lab\n  HostName 127.0.0.1\n  User %s\n' "$USER" &gt;&gt; ~/.ssh/config
+$ crontab -e
+  30 3 * * * /home/YOU/shell-lab/scripts/backup.sh &gt;&gt; /home/YOU/backup.log 2&gt;&amp;1</code></pre>
+
+<hr>
+
+<p class="lede">That is the 20%. The rest is repetition — and the repetition is the point. Pick one thing from Chapter 12 and use it deliberately this week; next week pick another. Fluency at the shell is not a body of knowledge you finish acquiring, it is a set of reflexes you build a few seconds at a time.</p>

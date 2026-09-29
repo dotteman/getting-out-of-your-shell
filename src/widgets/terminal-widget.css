@@ -1,0 +1,79 @@
+/* ---- Interactive terminal widget (Getting Out Of Your Shell) ---- */
+.shell-term-wrap {
+  margin: 1.5em 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: #1e1f29;
+}
+.shell-term-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(#3a3b47, #2c2d38);
+  border-bottom: 1px solid #111;
+}
+.shell-term-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.shell-term-dot.r { background: #ff5f56; }
+.shell-term-dot.y { background: #ffbd2e; }
+.shell-term-dot.g { background: #27c93f; }
+.shell-term-title {
+  flex: 1;
+  text-align: center;
+  color: #cfd2dc;
+  font-size: 12.5px;
+  letter-spacing: .02em;
+}
+.shell-term-reset {
+  background: #454759;
+  color: #d7d9e4;
+  border: 1px solid #565870;
+  border-radius: 5px;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.shell-term-reset:hover { background: #565870; }
+.shell-term-body {
+  padding: 12px 14px 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  font-size: 13.2px;
+  line-height: 1.5;
+  color: #e6e6ea;
+  cursor: text;
+}
+.shell-term-body::-webkit-scrollbar { width: 9px; }
+.shell-term-body::-webkit-scrollbar-thumb { background: #454759; border-radius: 6px; }
+.shell-term-line { white-space: pre-wrap; word-break: break-word; margin: 0; }
+.shell-term-out { color: #e6e6ea; }
+.shell-term-err { color: #ff8080; }
+.shell-term-hint { color: #7f8299; font-style: italic; }
+.shell-term-echo { color: #93e0a8; }
+.shell-term-prompt-user { color: #7ee7c7; }
+.shell-term-prompt-path { color: #7db8ff; }
+.shell-term-prompt-sym { color: #e6e6ea; }
+.shell-term-inputrow { display: flex; align-items: baseline; }
+.shell-term-inputrow .shell-term-prompt { flex: 0 0 auto; white-space: pre; margin-right: 6px; }
+.shell-term-input {
+  flex: 1 1 auto;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f4f4f8;
+  font: inherit;
+  caret-color: #7ee7c7;
+  min-width: 40px;
+}
+.shell-term-candidates { color: #9aa0c3; margin: 2px 0 4px; }
+.shell-term-search { color: #ffbd2e; }
+/* shown when a command's output is capped (see MAX_LINES_PER_COMMAND) */
+.shell-term-trunc { color: #a9adbe; font-style: italic; }
+/* The terminal is dark in both schemes by design; on a dark page the drop
+   shadow disappears, so give it an edge to sit on. */
+@media (prefers-color-scheme: dark) {
+  .shell-term-wrap { box-shadow: 0 6px 20px rgba(0,0,0,0.45); border: 1px solid #34363f; }
+}

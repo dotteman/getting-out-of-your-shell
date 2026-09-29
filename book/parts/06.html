@@ -1,0 +1,113 @@
+<h2 id="ch6"><span class="chapnum">Chapter 6</span>Finding Things</h2>
+
+<p>Two questions come up constantly: <em>where is that file?</em> and <em>which file contains that text?</em> The answers are <code>find</code> and <code>grep</code>.</p>
+
+<h3 id="find">find: locating files by their properties</h3>
+
+<p><code>find</code> has an unusual syntax — <code>find WHERE CONDITIONS ACTION</code> — but you only need a handful of conditions.</p>
+
+<pre><code>$ find . -name "*.log"              # by name, case-sensitive, from here down
+$ find . -iname "readme*"           # case-insensitive
+$ find /etc -type f                 # files only (-type d for directories, l for links)
+$ find . -size +100M                # bigger than 100 MB (+/- for more/less)
+$ find . -mtime -7                  # modified in the last 7 days
+$ find . -mtime +30                 # modified more than 30 days ago
+$ find . -mmin -15                  # modified in the last 15 minutes
+$ find . -user dave                 # owned by a user
+$ find . -perm -u+x                 # executable by its owner
+$ find . -maxdepth 2 -name "*.conf" # don't recurse forever</code></pre>
+
+<p>Combine conditions — they are ANDed by default:</p>
+
+<pre><code>$ find /var/log -type f -name "*.log" -size +10M -mtime +7
+$ find . -name "*.tmp" -o -name "*.bak"     # -o is OR
+$ find . -type f ! -name "*.md"             # ! negates</code></pre>
+
+<h4>Doing something with what you found</h4>
+
+<pre><code>$ find . -name "*.tmp" -delete
+$ find . -name "*.log" -exec gzip {} \;      # run gzip once per file
+$ find . -name "*.log" -exec rm {} +         # batch them into fewer invocations
+$ find . -name "*.conf" -exec grep -l listen {} +
+$ find . -name "*.sh" -print0 | xargs -0 chmod +x</code></pre>
+
+<p><code>{}</code> is a placeholder for each filename. <code>\;</code> ends the command and runs it once per file; <code>+</code> packs as many filenames as fit into each invocation and is much faster on large sets.</p>
+
+<div class="box warn">
+  <span class="label">Always look before you delete</span>
+  <p>Run the <code>find</code> without <code>-delete</code> first and read the list. <code>find . -name "*.log " -delete</code> — note the trailing space inside the quotes — matches nothing, but a typo the other direction can match far more than you intended.</p>
+</div>
+
+<h3 id="faster-find">Faster alternatives</h3>
+
+<pre><code>$ locate nginx.conf        # instant, from a nightly-updated database
+$ sudo updatedb            # refresh that database
+$ which python3            # where is the executable I would run?
+/usr/bin/python3
+$ type -a python3          # every match, including aliases and functions
+$ command -v docker        # the script-friendly version of `which`</code></pre>
+
+<p><code>locate</code> is fast because it does not search the disk — it queries an index. That also means it will not know about a file you created five minutes ago.</p>
+
+<h3 id="grep-basics">grep: finding text inside files</h3>
+
+<pre><code>$ grep ERROR app.log                 # lines containing ERROR
+$ grep -i error app.log              # case-insensitive
+$ grep -n ERROR app.log              # with line numbers
+$ grep -r TODO src/                  # recursive through a directory
+$ grep -c ERROR app.log              # just the count
+$ grep -v DEBUG app.log              # invert: lines NOT matching
+$ grep -l ERROR *.log                # just list which files matched
+$ grep -w cat notes.txt              # whole word only, so "category" won't match
+$ grep -A3 -B1 ERROR app.log         # 3 lines after, 1 before each match
+$ grep -C2 ERROR app.log             # 2 lines of context on both sides</code></pre>
+
+<p>These flags are the whole 80%. <code>-r</code>, <code>-i</code>, <code>-n</code>, <code>-v</code>, and <code>-C</code> will cover almost everything you do.</p>
+
+<pre><code>$ grep -rn "TODO" --include="*.py" .        # only search Python files
+$ grep -rn "password" --exclude-dir=.git .  # skip the git directory</code></pre>
+
+<h3 id="combining">Combining find and grep</h3>
+
+<pre><code>$ find . -name "*.conf" | xargs grep -l "ssl"          # which configs mention ssl
+$ find /var/log -mtime -1 -type f -exec grep -H "OOM" {} +   # yesterday's logs
+$ grep -rn "deprecated" $(find . -name "*.js" -mtime -30)</code></pre>
+
+<p>Rule of thumb: use <code>find</code> when the <em>file's properties</em> matter (name, age, size, permissions), <code>grep -r</code> when only the <em>content</em> matters, and combine them when both do.</p>
+
+<div class="box tip">
+  <span class="label">Worth installing</span>
+  <p><code>ripgrep</code> (<code>rg</code>) is a drop-in <code>grep -r</code> replacement that is dramatically faster, respects <code>.gitignore</code> automatically, and needs no flags for the common case: <code>rg TODO</code>. Nothing in this book depends on it, but if you search code daily it is the single best quality-of-life install.</p>
+</div>
+
+<div class="box lab">
+  <span class="label">Lab 6 · Search and rescue</span>
+  <p>Work inside <code>~/shell-lab</code>.</p>
+  <ol>
+    <li>Find every file under <code>~/shell-lab</code> whose name ends in <code>.log</code>.</li>
+    <li>Find every file modified in the last day, at most two directories deep.</li>
+    <li>Find all <em>directories</em> named <code>tmp</code> anywhere in the sandbox.</li>
+    <li>List every file larger than 1 KB in <code>data/</code>.</li>
+    <li>Show every line in <code>logs/app.log</code> containing <code>ERROR</code>, with line numbers and two lines of surrounding context.</li>
+    <li>Count how many lines in <code>logs/app.log</code> are <em>not</em> DEBUG.</li>
+    <li>Search recursively for the word <code>timeout</code> in <code>conf/</code>, printing only the filenames that contain it.</li>
+    <li>Find every <code>.sh</code> file in the sandbox and make it executable, safely handling spaces in filenames.</li>
+  </ol>
+</div>
+
+<h3 id="q6">Questions</h3>
+
+<details><summary>When would you use <code>locate</code> over <code>find</code>?</summary>
+<div class="ans"><p>When you want a file by name, anywhere on the system, right now, and it has existed since at least last night. <code>locate</code> reads a prebuilt index so it returns instantly; <code>find /</code> walks the entire disk and can take minutes. Use <code>find</code> when you need current results or when you are filtering on size, age, ownership, or permissions — things the index does not track.</p></div></details>
+
+<details><summary>What is the difference between <code>-exec cmd {} \;</code> and <code>-exec cmd {} +</code>?</summary>
+<div class="ans"><p><code>\;</code> runs the command once per file — 5,000 files means 5,000 processes. <code>+</code> appends as many filenames as will fit onto a single command line, so the same job might take three invocations. Use <code>+</code> whenever the command accepts multiple files (most do). Use <code>\;</code> when the command takes exactly one file, or when you need <code>{}</code> to appear more than once.</p></div></details>
+
+<details><summary><code>grep -r ERROR .</code> in a git repo is slow and full of noise. Two ways to fix it?</summary>
+<div class="ans"><p>Either narrow it — <code>grep -rn ERROR --include="*.py" --exclude-dir=.git .</code> — or use <code>rg ERROR</code>, which skips <code>.git</code> and anything in <code>.gitignore</code> by default and is parallelized. For a one-off, the flags are fine; if you do this daily, install ripgrep.</p></div></details>
+
+<details><summary>How do you find files modified in the last 30 minutes?</summary>
+<div class="ans"><p><code>find . -mmin -30</code>. Note that <code>-mtime</code> counts in days and <code>-mmin</code> in minutes, and that the minus sign means "less than" (i.e. more recent). <code>-mtime +30</code> means older than 30 days; <code>-mtime -30</code> means within the last 30 days. Getting the sign backwards is the classic mistake.</p></div></details>
+
+<details><summary>You need every line that mentions "error" in any case, but not lines that also say "ignorable". How?</summary>
+<div class="ans"><p>Chain two greps: <code>grep -i error app.log | grep -v ignorable</code>. Piping greps together is the normal way to build up include/exclude logic, and it is far more readable than trying to express the whole thing as one regex.</p></div></details>

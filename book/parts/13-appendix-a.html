@@ -1,0 +1,188 @@
+<h2 id="appendix-a"><span class="chapnum">Appendix A</span>The Cheat Sheet</h2>
+
+<p>Everything in the book, compressed. If you print one page, print this one.</p>
+
+<h3 id="cs-nav">Navigation and files</h3>
+
+<table>
+  <tr><th>Command</th><th>Does</th></tr>
+  <tr><td><code>pwd</code></td><td>print working directory</td></tr>
+  <tr><td><code>cd DIR</code> / <code>cd</code> / <code>cd -</code></td><td>go there / go home / go back</td></tr>
+  <tr><td><code>ls -lah</code></td><td>long, all, human-readable</td></tr>
+  <tr><td><code>ls -ltr</code></td><td>newest last — best for logs</td></tr>
+  <tr><td><code>tree -L 2</code></td><td>directory tree, 2 levels</td></tr>
+  <tr><td><code>mkdir -p a/b/c</code></td><td>create with parents, no error if exists</td></tr>
+  <tr><td><code>touch f</code></td><td>create empty / update timestamp</td></tr>
+  <tr><td><code>cp -a src/ dst/</code></td><td>recursive copy preserving everything</td></tr>
+  <tr><td><code>mv a b</code></td><td>rename or move</td></tr>
+  <tr><td><code>rm -r dir/</code></td><td>delete recursively — no undo</td></tr>
+  <tr><td><code>rmdir dir</code></td><td>delete only if empty</td></tr>
+  <tr><td><code>ln -s target link</code></td><td>symbolic link</td></tr>
+  <tr><td><code>du -sh *</code> / <code>df -h</code></td><td>size of each item / free space</td></tr>
+</table>
+
+<h3 id="cs-read">Reading files</h3>
+
+<table>
+  <tr><th>Command</th><th>Does</th></tr>
+  <tr><td><code>cat f</code></td><td>print whole file</td></tr>
+  <tr><td><code>less f</code></td><td>page through (<code>/</code> search, <code>G</code> end, <code>q</code> quit, <code>F</code> follow)</td></tr>
+  <tr><td><code>head -n N f</code> / <code>tail -n N f</code></td><td>first / last N lines</td></tr>
+  <tr><td><code>tail -F f</code></td><td>follow a growing file, surviving rotation</td></tr>
+  <tr><td><code>wc -l f</code></td><td>count lines (<code>-w</code> words, <code>-c</code> bytes)</td></tr>
+  <tr><td><code>file f</code></td><td>what type is it really</td></tr>
+  <tr><td><code>diff -u a b</code></td><td>unified diff</td></tr>
+  <tr><td><code>zcat f.gz</code> / <code>zgrep p f.gz</code></td><td>read / search compressed files</td></tr>
+</table>
+
+<h3 id="cs-pipes">Pipes, redirection, chaining</h3>
+
+<table>
+  <tr><th>Syntax</th><th>Does</th></tr>
+  <tr><td><code>a | b</code></td><td>a's stdout becomes b's stdin</td></tr>
+  <tr><td><code>&gt; f</code> / <code>&gt;&gt; f</code></td><td>stdout to file, overwrite / append</td></tr>
+  <tr><td><code>2&gt; f</code></td><td>stderr to file</td></tr>
+  <tr><td><code>&amp;&gt; f</code> or <code>&gt; f 2&gt;&amp;1</code></td><td>both to file</td></tr>
+  <tr><td><code>&gt; /dev/null 2&gt;&amp;1</code></td><td>discard all output</td></tr>
+  <tr><td><code>&lt; f</code></td><td>file as stdin</td></tr>
+  <tr><td><code>| tee f</code></td><td>show and save</td></tr>
+  <tr><td><code>| xargs cmd</code></td><td>stdin becomes arguments</td></tr>
+  <tr><td><code>a &amp;&amp; b</code> / <code>a || b</code> / <code>a ; b</code></td><td>if a succeeds / if a fails / regardless</td></tr>
+  <tr><td><code>$(cmd)</code></td><td>substitute cmd's output</td></tr>
+  <tr><td><code>$?</code></td><td>exit code of last command (0 = success)</td></tr>
+</table>
+
+<h3 id="cs-search">Searching</h3>
+
+<table>
+  <tr><th>Command</th><th>Does</th></tr>
+  <tr><td><code>grep -rn PAT dir/</code></td><td>recursive, with line numbers</td></tr>
+  <tr><td><code>grep -i</code> / <code>-v</code> / <code>-c</code> / <code>-l</code> / <code>-w</code></td><td>ignore case / invert / count / filenames only / whole word</td></tr>
+  <tr><td><code>grep -C3 PAT f</code></td><td>3 lines of context around each match</td></tr>
+  <tr><td><code>grep -E 'a|b'</code> / <code>grep -F 'lit'</code></td><td>extended regex / literal string</td></tr>
+  <tr><td><code>grep -q PAT f</code></td><td>silent — use in <code>if</code></td></tr>
+  <tr><td><code>find . -name '*.log'</code></td><td>by name</td></tr>
+  <tr><td><code>find . -type f -o -type d</code></td><td>files / directories</td></tr>
+  <tr><td><code>find . -mtime -7</code> / <code>-mmin -30</code></td><td>modified in last 7 days / 30 min</td></tr>
+  <tr><td><code>find . -size +100M</code></td><td>bigger than 100 MB</td></tr>
+  <tr><td><code>find . -name X -exec cmd {} +</code></td><td>run a command on the results</td></tr>
+  <tr><td><code>find . -print0 | xargs -0 cmd</code></td><td>safe with spaces in names</td></tr>
+  <tr><td><code>which cmd</code> / <code>type -a cmd</code></td><td>where is it / what is it</td></tr>
+</table>
+
+<h3 id="cs-text">Text processing</h3>
+
+<table>
+  <tr><th>Command</th><th>Does</th></tr>
+  <tr><td><code>sed 's/a/b/g' f</code></td><td>replace all on each line</td></tr>
+  <tr><td><code>sed -i.bak 's/a/b/g' f</code></td><td>edit in place with backup</td></tr>
+  <tr><td><code>sed -n '5,10p' f</code></td><td>print lines 5-10</td></tr>
+  <tr><td><code>sed '/^#/d;/^$/d' f</code></td><td>strip comments and blank lines</td></tr>
+  <tr><td><code>awk '{print $1, $NF}'</code></td><td>first and last field</td></tr>
+  <tr><td><code>awk -F, 'NR&gt;1 {print $3}'</code></td><td>CSV field 3, skipping the header</td></tr>
+  <tr><td><code>awk '$3 &gt; 100'</code></td><td>filter numerically</td></tr>
+  <tr><td><code>awk '{s+=$2} END {print s}'</code></td><td>sum a column</td></tr>
+  <tr><td><code>sort</code> / <code>-n</code> / <code>-rn</code> / <code>-h</code> / <code>-u</code></td><td>alpha / numeric / desc numeric / human sizes / dedup</td></tr>
+  <tr><td><code>sort -t, -k3 -n</code></td><td>by 3rd comma-delimited field</td></tr>
+  <tr><td><code>uniq -c</code></td><td>count adjacent duplicates (sort first!)</td></tr>
+  <tr><td><code>cut -d, -f2</code> / <code>cut -c1-10</code></td><td>field 2 / characters 1-10</td></tr>
+  <tr><td><code>tr 'a-z' 'A-Z'</code> / <code>tr -d '\r'</code></td><td>uppercase / delete characters</td></tr>
+  <tr><td><code>sort | uniq -c | sort -rn</code></td><td><strong>the frequency-count idiom</strong></td></tr>
+</table>
+
+<h3 id="cs-regex">Regex, in one table</h3>
+
+<table>
+  <tr><td><code>.</code> any char</td><td><code>*</code> 0+ of previous</td><td><code>+</code> 1+</td><td><code>?</code> 0 or 1</td></tr>
+  <tr><td><code>^</code> line start</td><td><code>$</code> line end</td><td><code>[abc]</code> one of</td><td><code>[^abc]</code> none of</td></tr>
+  <tr><td><code>[0-9]</code> digit</td><td><code>\.</code> literal dot</td><td><code>a|b</code> or</td><td><code>{2,4}</code> 2 to 4 times</td></tr>
+</table>
+
+<h3 id="cs-perms">Permissions</h3>
+
+<table>
+  <tr><th>Command</th><th>Does</th></tr>
+  <tr><td><code>chmod +x f</code></td><td>make executable</td></tr>
+  <tr><td><code>chmod 644 f</code> / <code>755 f</code> / <code>600 f</code></td><td>normal file / script or dir / private</td></tr>
+  <tr><td><code>chmod u=rw,go=r f</code></td><td>set exactly, symbolically</td></tr>
+  <tr><td><code>chown user:group f</code></td><td>change owner and group (needs sudo)</td></tr>
+  <tr><td><code>id</code> / <code>groups</code> / <code>whoami</code></td><td>who am I and what can I do</td></tr>
+  <tr><td><code>umask</code></td><td>default permission mask (022 → 644/755)</td></tr>
+  <tr><td colspan="2">r=4, w=2, x=1 · on a directory: r=list, w=create/delete, x=enter</td></tr>
+</table>
+
+<h3 id="cs-proc">Processes</h3>
+
+<table>
+  <tr><th>Command</th><th>Does</th></tr>
+  <tr><td><code>ps aux</code> / <code>ps aux --sort=-%mem</code></td><td>all processes / by memory</td></tr>
+  <tr><td><code>pgrep -a name</code> / <code>pkill -f pat</code></td><td>find / kill by name or command line</td></tr>
+  <tr><td><code>top</code> / <code>htop</code></td><td>live view (<code>M</code> mem, <code>P</code> cpu, <code>k</code> kill, <code>q</code> quit)</td></tr>
+  <tr><td><code>kill PID</code> / <code>kill -9 PID</code></td><td>polite / forceful</td></tr>
+  <tr><td><code>cmd &amp;</code> / <code>jobs</code> / <code>fg</code> / <code>bg</code></td><td>background / list / foreground / resume</td></tr>
+  <tr><td><code>Ctrl-Z</code> then <code>bg</code></td><td>suspend, then keep it running in background</td></tr>
+  <tr><td><code>nohup cmd &amp;</code></td><td>survive logout</td></tr>
+  <tr><td><code>tmux new -s name</code> / <code>attach -t name</code></td><td>persistent session (<code>Ctrl-b d</code> to detach)</td></tr>
+  <tr><td><code>lsof -i :PORT</code> / <code>ss -tulpn</code></td><td>what is on that port</td></tr>
+  <tr><td><code>uptime</code> / <code>free -h</code> / <code>df -h</code></td><td>the three-command health check</td></tr>
+</table>
+
+<h3 id="cs-env">Environment and quoting</h3>
+
+<table>
+  <tr><th>Syntax</th><th>Does</th></tr>
+  <tr><td><code>VAR=value</code></td><td>set (no spaces around <code>=</code>)</td></tr>
+  <tr><td><code>export VAR=value</code></td><td>set and pass to child processes</td></tr>
+  <tr><td><code>"$VAR"</code></td><td>expand, safely — <strong>the default</strong></td></tr>
+  <tr><td><code>'$VAR'</code></td><td>literal, no expansion</td></tr>
+  <tr><td><code>${VAR:-default}</code></td><td>fallback if unset or empty</td></tr>
+  <tr><td><code>${VAR:?message}</code></td><td>abort if unset or empty</td></tr>
+  <tr><td><code>${f%.gz}</code> / <code>${f%%.*}</code></td><td>strip shortest / longest from the end</td></tr>
+  <tr><td><code>${f#pre}</code> / <code>${#f}</code></td><td>strip from the start / length</td></tr>
+  <tr><td><code>source ~/.bashrc</code></td><td>apply config without a new terminal</td></tr>
+  <tr><td><code>Ctrl-R</code> / <code>!!</code> / <code>!$</code> / <code>sudo !!</code></td><td>history search / last command / last argument</td></tr>
+</table>
+
+<h3 id="cs-script">Scripting skeleton</h3>
+
+<pre><code>#!/usr/bin/env bash
+set -euo pipefail
+
+target="${1:?usage: $0 TARGET}"
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+log() { echo "[$(date +'%F %T')] $*" &gt;&amp;2; }
+
+if [[ -d "$target" ]]; then
+  for f in "$target"/*; do
+    [[ -f "$f" ]] || continue
+    log "processing ${f##*/}"
+  done
+else
+  log "not a directory: $target"
+  exit 1
+fi</code></pre>
+
+<table>
+  <tr><th>Test</th><th>True when</th></tr>
+  <tr><td><code>-f</code> / <code>-d</code> / <code>-e</code> / <code>-s</code></td><td>is a file / a directory / exists / is non-empty</td></tr>
+  <tr><td><code>-z "$s"</code> / <code>-n "$s"</code></td><td>string empty / non-empty</td></tr>
+  <tr><td><code>"$a" == "$b"</code></td><td>strings equal</td></tr>
+  <tr><td><code>$a -eq -ne -lt -le -gt -ge $b</code></td><td>numeric comparison</td></tr>
+</table>
+
+<h3 id="cs-misc">Remote, archives, scheduling</h3>
+
+<table>
+  <tr><th>Command</th><th>Does</th></tr>
+  <tr><td><code>tar -czf a.tgz dir/</code></td><td>create gzipped archive</td></tr>
+  <tr><td><code>tar -xzf a.tgz</code> / <code>-tzf</code></td><td>extract / list without extracting</td></tr>
+  <tr><td><code>ssh user@host 'cmd'</code></td><td>run one command remotely</td></tr>
+  <tr><td><code>ssh-copy-id user@host</code></td><td>stop typing passwords</td></tr>
+  <tr><td><code>scp f user@host:/path/</code></td><td>copy one file</td></tr>
+  <tr><td><code>rsync -avz --dry-run src/ dst/</code></td><td>preview a sync; drop <code>--dry-run</code> to do it</td></tr>
+  <tr><td><code>curl -fsSL URL</code></td><td>fetch, failing loudly, following redirects</td></tr>
+  <tr><td><code>crontab -e</code> / <code>-l</code></td><td>edit / list scheduled jobs</td></tr>
+  <tr><td colspan="2">cron fields: <code>min hour day-of-month month day-of-week</code> — always use absolute paths and redirect output</td></tr>
+</table>

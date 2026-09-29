@@ -1,0 +1,147 @@
+
+  :root{
+    --bg:#faf8f5; --fg:#241f1a; --muted:#6b6156; --rule:#e2dbd1;
+    --accent:#9a4b2e; --accent-soft:#f3e7e1;
+    --code-bg:#1e1b18; --code-fg:#e8e2da;
+    --c-cmd:#8fc7a8; --c-str:#e6c78a; --c-opt:#9fc0e8; --c-var:#d9a2c9;
+    --c-com:#8b8176; --c-prompt:#7fa87f; --c-kw:#e0917a;
+    --sidebar:300px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#17150f; --fg:#e9e3d9; --muted:#a2988a; --rule:#332e26;
+      --accent:#e0906b; --accent-soft:#2a211b;
+      --code-bg:#0f0e0c; --code-fg:#e8e2da;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth; scroll-padding-top:1.5rem}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Georgia,"Iowan Old Style",serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* ---------- layout ---------- */
+  #sidebar{
+    position:fixed; top:0; left:0; width:var(--sidebar); height:100vh; overflow-y:auto;
+    border-right:1px solid var(--rule); padding:1.6rem 1.1rem 4rem; background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; font-size:13.5px;
+  }
+  #sidebar .brand{font-weight:700; font-size:15px; letter-spacing:-.01em; margin-bottom:.15rem}
+  #sidebar .brand small{display:block; font-weight:400; color:var(--muted); font-size:12px; margin-top:.2rem}
+  #toc{margin-top:1.3rem}
+  #toc a{
+    display:block; padding:.28rem .5rem; color:var(--muted); text-decoration:none;
+    border-radius:5px; border-left:2px solid transparent; line-height:1.35;
+  }
+  #toc a.lvl2{font-weight:600; color:var(--fg); margin-top:.55rem}
+  #toc a.lvl3{padding-left:1.15rem; font-size:12.8px}
+  #toc a:hover{background:var(--accent-soft); color:var(--accent)}
+  #toc a.active{color:var(--accent); border-left-color:var(--accent); background:var(--accent-soft)}
+  main{margin-left:var(--sidebar); padding:3.2rem 3rem 8rem; max-width:920px}
+  #menubtn{display:none}
+  @media (max-width:900px){
+    #sidebar{transform:translateX(-100%); transition:transform .2s; z-index:50; box-shadow:0 0 40px rgba(0,0,0,.25); width:280px}
+    body.nav-open #sidebar{transform:none}
+    main{margin-left:0; padding:3.6rem 1.15rem 6rem}
+    #menubtn{
+      display:block; position:fixed; top:.7rem; left:.7rem; z-index:60;
+      background:var(--bg); border:1px solid var(--rule); color:var(--fg);
+      border-radius:7px; padding:.42rem .7rem; font-size:15px; cursor:pointer;
+    }
+  }
+  /* ---------- typography ---------- */
+  h1{font-size:2.35rem; line-height:1.12; letter-spacing:-.02em; margin:0 0 .4rem}
+  h2{
+    font-size:1.6rem; line-height:1.2; letter-spacing:-.015em;
+    margin:4.2rem 0 1rem; padding-top:1.4rem; border-top:1px solid var(--rule);
+  }
+  h2:first-of-type{border-top:none; padding-top:0}
+  h3{font-size:1.15rem; margin:2.2rem 0 .6rem; letter-spacing:-.01em}
+  h4{font-size:1rem; margin:1.5rem 0 .4rem; color:var(--accent)}
+  p{margin:.85rem 0}
+  a{color:var(--accent)}
+  ul,ol{padding-left:1.35rem; margin:.8rem 0}
+  li{margin:.32rem 0}
+  strong{font-weight:650}
+  hr{border:none; border-top:1px solid var(--rule); margin:2.5rem 0}
+  .lede{font-size:1.12rem; color:var(--muted)}
+  .chapnum{
+    display:block; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:.45rem;
+  }
+  /* ---------- code ---------- */
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.87em;
+    background:var(--accent-soft); padding:.12em .36em; border-radius:4px; word-break:break-word;
+  }
+  pre{
+    position:relative; background:var(--code-bg); color:var(--code-fg); border-radius:9px;
+    padding:1rem 1.05rem; overflow-x:auto; margin:1.1rem 0; line-height:1.55;
+    font-size:13.6px; border:1px solid rgba(255,255,255,.06);
+  }
+  pre code{background:none; padding:0; font-size:inherit; color:inherit}
+  pre .prompt{color:var(--c-prompt); user-select:none}
+  pre .cmd{color:var(--c-cmd)}
+  pre .kw{color:var(--c-kw)}
+  pre .str{color:var(--c-str)}
+  pre .opt{color:var(--c-opt)}
+  pre .var{color:var(--c-var)}
+  pre .com{color:var(--c-com); font-style:italic}
+  .copy{
+    position:absolute; top:.45rem; right:.45rem; opacity:0; transition:opacity .15s;
+    background:rgba(255,255,255,.09); color:#ded7cd; border:none; border-radius:5px;
+    font:600 11px/1 -apple-system,system-ui,sans-serif; padding:.35rem .5rem; cursor:pointer;
+  }
+  pre:hover .copy{opacity:1}
+  .copy:hover{background:rgba(255,255,255,.18)}
+  /* ---------- boxes ---------- */
+  .box{border:1px solid var(--rule); border-radius:9px; padding:1rem 1.15rem; margin:1.4rem 0; background:rgba(127,127,127,.045)}
+  .box > :first-child{margin-top:0}
+  .box > :last-child{margin-bottom:0}
+  .box .label{
+    font:700 11px/1 -apple-system,system-ui,sans-serif; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--accent); display:block; margin-bottom:.6rem;
+  }
+  .lab{border-left:3px solid var(--accent)}
+  .warn{border-left:3px solid #c9793f}
+  .warn .label{color:#c9793f}
+  .tip .label{color:#4d8a6a}
+  .tip{border-left:3px solid #4d8a6a}
+  /* ---------- tables ---------- */
+  table{border-collapse:collapse; width:100%; margin:1.2rem 0; font-size:14.5px}
+  th,td{text-align:left; padding:.5rem .6rem; border-bottom:1px solid var(--rule); vertical-align:top}
+  th{font:600 12px/1.3 -apple-system,system-ui,sans-serif; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+  td code{font-size:.92em; white-space:nowrap}
+  td:first-child{white-space:nowrap}
+  /* ---------- Q&A ---------- */
+  details{border-bottom:1px solid var(--rule); padding:.65rem 0}
+  details summary{cursor:pointer; font-weight:600; list-style:none; padding-left:1.4rem; position:relative}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"▸"; position:absolute; left:.2rem; color:var(--accent); transition:transform .15s; display:inline-block}
+  details[open] summary::before{transform:rotate(90deg)}
+  details .ans{margin:.6rem 0 .2rem 1.4rem; color:var(--muted)}
+  details .ans code{color:var(--fg)}
+  details .ans p:first-child{margin-top:.4rem}
+  /* ---------- misc ---------- */
+  .cover{border-bottom:1px solid var(--rule); padding-bottom:2.5rem; margin-bottom:1rem}
+  .cover .sub{font-size:1.25rem; color:var(--muted); margin:.3rem 0 1.2rem}
+  .pill{display:inline-block; font:600 11px/1 -apple-system,system-ui,sans-serif; letter-spacing:.08em;
+        text-transform:uppercase; background:var(--accent-soft); color:var(--accent); padding:.4rem .6rem; border-radius:20px; margin-right:.4rem}
+  .toc-grid{columns:2; column-gap:2rem}
+  .toc-grid a{display:block; padding:.22rem 0; text-decoration:none; break-inside:avoid}
+  .toc-grid a:hover{text-decoration:underline}
+  @media (max-width:640px){.toc-grid{columns:1}}
+  @media print{
+    #sidebar,#menubtn,.copy{display:none}
+    main{margin:0; max-width:none; padding:0}
+    pre{background:#f4f2ef; color:#111; border:1px solid #ccc}
+    pre .prompt,pre .cmd,pre .kw,pre .str,pre .opt,pre .var,pre .com{color:#111}
+    h2{break-before:page}
+    details{break-inside:avoid} details[open] summary::before{content:"▸"}
+  }
+
+  .book-cover{margin:-3.2rem 0 2.8rem; text-align:center}
+  .book-cover img{width:100%; max-width:560px; display:block; margin:0 auto; border-radius:14px; box-shadow:0 18px 40px -14px rgba(30,20,10,.35)}
+  @media (max-width:900px){.book-cover{margin:-3.6rem 0 2.2rem}}
+  @media print{.book-cover{margin:0 0 1rem; break-after:page} .book-cover img{box-shadow:none}}

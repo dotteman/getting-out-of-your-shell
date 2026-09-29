@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Engine tests, seed parity, build check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Engine regression suite
+        run: node test/test.js
+      - name: Engine smoke test
+        run: node test/smoke.js
+      - name: Sandbox matches lab/setup.sh
+        run: node test/seed-parity.mjs
+      - name: docs/ is rebuilt from source
+        run: node build.mjs --check
+
+  browser:
+    name: Browser smoke test
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node test/browser-smoke.mjs

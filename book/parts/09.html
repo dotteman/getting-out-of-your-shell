@@ -1,0 +1,119 @@
+<h2 id="ch9"><span class="chapnum">Chapter 9</span>Processes and Jobs</h2>
+
+<p>A process is a running program. The shell gives you tools to see them, control the ones you started, and stop the ones you did not.</p>
+
+<h3 id="seeing">Seeing what is running</h3>
+
+<pre><code>$ ps aux                       # every process on the system
+$ ps aux | grep nginx          # the ones you care about
+$ ps -ef                       # the same information, different formatting
+$ pgrep -a nginx               # PIDs and command lines, without the grep noise
+$ top                          # live, sorted by CPU
+$ htop                         # top, but pleasant (install separately)</code></pre>
+
+<p>The columns in <code>ps aux</code> that matter: <strong>PID</strong> (the number you need to kill it), <strong>%CPU</strong> and <strong>%MEM</strong>, <strong>STAT</strong> (R running, S sleeping, Z zombie, D uninterruptible), and <strong>COMMAND</strong>.</p>
+
+<pre><code>$ ps aux --sort=-%mem | head -n 6      # top 5 memory consumers
+$ ps -o pid,ppid,cmd -p 4821            # specific fields for one PID</code></pre>
+
+<p>In <code>top</code>: <code>M</code> sorts by memory, <code>P</code> by CPU, <code>k</code> kills a PID, <code>q</code> quits, <code>1</code> shows per-core CPU.</p>
+
+<h3 id="killing">Stopping processes</h3>
+
+<pre><code>$ kill 4821                # polite: SIGTERM, asks it to shut down cleanly
+$ kill -9 4821             # forceful: SIGKILL, cannot be caught or ignored
+$ kill -HUP 4821           # SIGHUP: many daemons reload their config on this
+$ pkill nginx              # kill by name
+$ pkill -f "python app.py" # match against the full command line
+$ killall firefox          # kill every process with that exact name</code></pre>
+
+<p>Always try <code>kill</code> before <code>kill -9</code>. SIGTERM lets a program flush its buffers, close database connections, and remove its lock file. SIGKILL removes it from the kernel's process table mid-sentence, and the cleanup becomes your problem.</p>
+
+<table>
+  <tr><th>Signal</th><th>Number</th><th>Meaning</th></tr>
+  <tr><td>SIGHUP</td><td>1</td><td>terminal closed; by convention, "reload your config"</td></tr>
+  <tr><td>SIGINT</td><td>2</td><td>what Ctrl-C sends</td></tr>
+  <tr><td>SIGKILL</td><td>9</td><td>die now, uncatchable</td></tr>
+  <tr><td>SIGTERM</td><td>15</td><td>please exit — the default for <code>kill</code></td></tr>
+  <tr><td>SIGSTOP / SIGCONT</td><td>19 / 18</td><td>pause / resume, what Ctrl-Z and <code>fg</code> use</td></tr>
+</table>
+
+<h3 id="jobs">Job control: managing what you started</h3>
+
+<pre><code>$ long_running_command &amp;      # start it in the background
+[1] 4821
+$ jobs                         # list this shell's jobs
+[1]+  Running    long_running_command &amp;
+$ fg %1                        # bring job 1 to the foreground
+$ bg %1                        # resume a stopped job in the background
+$ Ctrl-Z                       # suspend the foreground job
+$ kill %1                      # kill by job number rather than PID</code></pre>
+
+<p>The everyday sequence: you start something, realize it will take ten minutes, press <strong>Ctrl-Z</strong> to suspend it, type <strong><code>bg</code></strong> to let it continue in the background, and get your prompt back. When it finishes, bash tells you.</p>
+
+<h3 id="persistent">Surviving a disconnect</h3>
+
+<p>Background jobs die when your shell exits, which matters over SSH.</p>
+
+<pre><code>$ nohup ./long_job.sh &amp;             # ignore SIGHUP; output goes to nohup.out
+$ nohup ./job.sh &gt; job.log 2&gt;&amp;1 &amp;   # ...with output where you want it
+$ disown -h %1                       # detach a job you already started</code></pre>
+
+<p>For anything you will want to come back to, use a terminal multiplexer instead:</p>
+
+<pre><code>$ tmux new -s deploy      # start a named session
+  (do work; press Ctrl-b then d to detach)
+$ tmux ls                 # list sessions
+$ tmux attach -t deploy   # reattach, from anywhere, later</code></pre>
+
+<p>tmux keeps a real terminal alive on the server. Your SSH connection dropping becomes a non-event rather than a lost deployment. If you administer remote machines, this is the highest-value thing in this chapter.</p>
+
+<h3 id="resources">What is it doing?</h3>
+
+<pre><code>$ uptime                    # load average: 1, 5, 15 minute
+$ free -h                   # memory
+$ df -h                     # disk space by filesystem
+$ du -sh /var/log/*         # what is filling the disk
+$ lsof -p 4821              # which files this process has open
+$ lsof -i :8080             # which process is holding port 8080
+$ ss -tulpn                 # all listening sockets and their processes
+$ strace -p 4821            # every syscall it makes (loud, but decisive)</code></pre>
+
+<p>"Which process has port 8080?" is asked daily; <code>lsof -i :8080</code> or <code>ss -tulpn | grep 8080</code> answers it.</p>
+
+<div class="box tip">
+  <span class="label">Load average</span>
+  <p><code>uptime</code>'s three numbers are the average number of processes wanting CPU over the last 1, 5, and 15 minutes. Compare them against your core count: a load of 4.0 on a 4-core machine is fully busy, on a 16-core machine it is idle. The trend across the three numbers tells you whether things are getting better or worse.</p>
+</div>
+
+<div class="box lab">
+  <span class="label">Lab 9 · Process control</span>
+  <ol>
+    <li>List the five processes using the most memory on your machine.</li>
+    <li>Start <code>sleep 300</code> in the background. Confirm it appears in <code>jobs</code> and find its PID.</li>
+    <li>Bring it to the foreground, suspend it with Ctrl-Z, then resume it in the background.</li>
+    <li>Kill it using its job number, then start another and kill it by PID.</li>
+    <li>Start <code>sleep 300</code> in the foreground, suspend it, and confirm with <code>ps</code> that its state is <code>T</code> (stopped).</li>
+    <li>Find every process whose command line contains <code>sleep</code>, using one command and no <code>grep</code>.</li>
+    <li>Show your machine's load average, free memory, and disk usage.</li>
+    <li>Find out which process is listening on a port — try 22 if you have sshd running.</li>
+    <li>Run <code>./scripts/slow.sh</code> with <code>nohup</code> so it survives closing the terminal, sending its output to <code>slow.log</code>.</li>
+  </ol>
+</div>
+
+<h3 id="q9">Questions</h3>
+
+<details><summary>Why is <code>kill -9</code> a last resort?</summary>
+<div class="ans"><p>SIGKILL is handled by the kernel and never reaches the program, so it gets no chance to run cleanup code: buffers are not flushed (data loss), temp files and lock files are left behind, child processes can be orphaned, and databases may need recovery on restart. Send SIGTERM, wait a few seconds, and only escalate if the process ignores it. A process that ignores SIGTERM repeatedly is usually stuck in uninterruptible I/O (state <code>D</code>), where even SIGKILL will not help until the I/O completes.</p></div></details>
+
+<details><summary>What is the difference between <code>&amp;</code>, <code>nohup</code>, and <code>tmux</code>?</summary>
+<div class="ans"><p><code>&amp;</code> backgrounds a job within your current shell — it dies when the shell exits. <code>nohup</code> makes it ignore the hangup signal so it survives your logout, but you cannot interact with it again. <code>tmux</code> keeps an entire terminal session alive on the machine, so you can detach, disconnect, reconnect from a different computer, and pick up exactly where you left off, with scrollback and multiple windows intact.</p></div></details>
+
+<details><summary>You pressed Ctrl-Z and your program stopped. Is it still running?</summary>
+<div class="ans"><p>No — it is <em>suspended</em>, not running and not consuming CPU. It sits in state <code>T</code> holding its memory. <code>fg</code> resumes it in the foreground, <code>bg</code> resumes it in the background. Forgetting a suspended job and closing the terminal will usually kill it, which is why bash warns "there are stopped jobs" when you try to exit.</p></div></details>
+
+<details><summary>How do you find what is holding port 5432?</summary>
+<div class="ans"><p><code>sudo lsof -i :5432</code> or <code>sudo ss -tulpn | grep 5432</code>. Both need root to show processes owned by other users — without <code>sudo</code> you will see the port is in use but not by whom, which is the confusing half-answer people usually get.</p></div></details>
+
+<details><summary>Your disk is full. What are the first two commands you run?</summary>
+<div class="ans"><p><code>df -h</code> to find <em>which</em> filesystem is full, then <code>du -sh /path/* | sort -h</code> on that filesystem to walk down toward the culprit, repeating a level at a time. One catch: if <code>df</code> shows full but <code>du</code> does not account for it, a deleted file is still held open by a running process — <code>lsof | grep deleted</code> finds it, and restarting that process releases the space.</p></div></details>

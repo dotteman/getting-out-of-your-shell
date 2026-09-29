@@ -1,0 +1,174 @@
+<h2 id="ch7"><span class="chapnum">Chapter 7</span>grep, sed, and awk</h2>
+
+<p>Three tools handle nearly all text manipulation: <strong>grep</strong> selects lines, <strong>sed</strong> edits lines, <strong>awk</strong> works with fields. Around them sits a supporting cast — <code>sort</code>, <code>uniq</code>, <code>cut</code>, <code>tr</code> — that does the simple jobs. You do not need to master any of these. You need a working subset, which is what follows.</p>
+
+<h3 id="regex">Regular expressions, the 20% of them</h3>
+
+<p>All three tools speak regex. Here is the part that matters:</p>
+
+<table>
+  <tr><th>Pattern</th><th>Matches</th></tr>
+  <tr><td><code>.</code></td><td>any single character</td></tr>
+  <tr><td><code>*</code></td><td>zero or more of the previous thing</td></tr>
+  <tr><td><code>+</code></td><td>one or more (needs <code>grep -E</code>)</td></tr>
+  <tr><td><code>?</code></td><td>zero or one (needs <code>grep -E</code>)</td></tr>
+  <tr><td><code>^</code></td><td>start of line</td></tr>
+  <tr><td><code>$</code></td><td>end of line</td></tr>
+  <tr><td><code>[abc]</code></td><td>any one of a, b, c</td></tr>
+  <tr><td><code>[^abc]</code></td><td>any character except a, b, c</td></tr>
+  <tr><td><code>[0-9]</code></td><td>any digit</td></tr>
+  <tr><td><code>\.</code></td><td>a literal dot (backslash escapes)</td></tr>
+  <tr><td><code>a|b</code></td><td>a or b (needs <code>grep -E</code>)</td></tr>
+  <tr><td><code>(ab)+</code></td><td>grouping (needs <code>grep -E</code>)</td></tr>
+  <tr><td><code>{2,4}</code></td><td>between 2 and 4 repetitions</td></tr>
+</table>
+
+<p>Use <code>grep -E</code> (extended regex) so that <code>+</code>, <code>?</code>, <code>|</code>, and <code>()</code> work without backslashes. Use <code>grep -F</code> when you want no regex at all — searching for a literal string containing dots or slashes.</p>
+
+<pre><code>$ grep -E '^ERROR' app.log                    # lines starting with ERROR
+$ grep -E 'error|fail|panic' app.log          # any of three words
+$ grep -E '[0-9]{3}-[0-9]{4}' contacts.txt    # a phone-shaped pattern
+$ grep -E '^\s*$' file.txt                    # blank lines
+$ grep -F '192.168.1.1' access.log            # literal, dots are just dots</code></pre>
+
+<div class="box tip">
+  <span class="label">Always single-quote your patterns</span>
+  <p><code>grep '$USER' file</code> searches for the literal text <code>$USER</code>; <code>grep "$USER" file</code> searches for <em>your username</em>. Regex is full of characters bash also wants to interpret (<code>$ * ? [ ] \</code>), so single quotes are the default and double quotes are the deliberate exception.</p>
+</div>
+
+<h3 id="sed">sed: search and replace on a stream</h3>
+
+<p>Ninety percent of real sed use is one command, <code>s</code> for substitute:</p>
+
+<pre><code>$ sed 's/old/new/' file.txt          # first occurrence on each line
+$ sed 's/old/new/g' file.txt         # every occurrence (g = global)
+$ sed 's/old/new/gi' file.txt        # global, case-insensitive
+$ sed -i 's/old/new/g' file.txt      # edit the file in place
+$ sed -i.bak 's/old/new/g' file.txt  # in place, keeping file.txt.bak</code></pre>
+
+<p>The delimiter does not have to be <code>/</code>. When your text contains slashes, switch it:</p>
+
+<pre><code>$ sed 's|/usr/local/bin|/opt/bin|g' paths.conf</code></pre>
+
+<p>The other handful of sed features worth knowing:</p>
+
+<pre><code>$ sed -n '5p' file.txt              # print only line 5 (-n suppresses default printing)
+$ sed -n '10,20p' file.txt          # lines 10 through 20
+$ sed '/^#/d' config.conf           # delete comment lines
+$ sed '/^$/d' file.txt              # delete blank lines
+$ sed 's/^[ \t]*//' file.txt        # strip leading whitespace
+$ sed '2i\inserted line' file.txt   # insert before line 2
+$ sed 's/\(.*\):\(.*\)/\2:\1/' pairs.txt   # swap around a colon using groups</code></pre>
+
+<p>In the last example <code>\( \)</code> captures a group and <code>\1</code>, <code>\2</code> refer back to them in the replacement. With <code>sed -E</code> you can drop the backslashes: <code>sed -E 's/(.*):(.*)/\2:\1/'</code>.</p>
+
+<div class="box warn">
+  <span class="label">On macOS</span>
+  <p>macOS ships BSD sed, where <code>-i</code> requires an argument: <code>sed -i '' 's/a/b/' file</code>. GNU sed (Linux) treats <code>-i ''</code> as an error. If you write scripts for both, <code>sed -i.bak</code> works on both and leaves a backup you can delete.</p>
+</div>
+
+<h3 id="awk">awk: columns and arithmetic</h3>
+
+<p>awk splits each line into fields and lets you work with them. <code>$1</code> is the first field, <code>$2</code> the second, <code>$0</code> the whole line, <code>NF</code> the number of fields, <code>NR</code> the current line number.</p>
+
+<pre><code>$ awk '{print $1}' access.log              # first column
+$ awk '{print $1, $NF}' access.log         # first and last column
+$ awk -F, '{print $3}' data.csv            # comma as the separator
+$ awk -F: '{print $1}' /etc/passwd         # all usernames
+$ awk 'NR &gt; 1 {print $2}' data.csv         # skip the header row</code></pre>
+
+<p>Add a condition before the braces and awk becomes a filter with arithmetic:</p>
+
+<pre><code>$ awk '$3 &gt; 100' data.txt                     # lines where field 3 exceeds 100
+$ awk -F, '$2 == "ERROR" {print $1}' log.csv  # field 2 matches exactly
+$ awk '/timeout/ {print NR": "$0}' app.log    # regex match, printing line numbers
+$ awk 'length($0) &gt; 80' file.txt              # lines longer than 80 characters</code></pre>
+
+<p>And the thing awk does that nothing else does as cleanly — summing a column:</p>
+
+<pre><code>$ awk '{sum += $3} END {print sum}' sales.txt
+48211
+$ awk -F, 'NR&gt;1 {sum += $4; n++} END {printf "avg: %.2f\n", sum/n}' data.csv
+avg: 132.47
+$ awk '{count[$1]++} END {for (ip in count) print count[ip], ip}' access.log | sort -rn</code></pre>
+
+<p><code>BEGIN { }</code> runs before the first line, <code>END { }</code> after the last. That last example builds a frequency table in an associative array — it is the awk version of <code>sort | uniq -c</code>, and it is faster because it does not sort.</p>
+
+<h3 id="supporting-cast">sort, uniq, cut, tr</h3>
+
+<pre><code>$ sort names.txt                # alphabetical
+$ sort -n numbers.txt           # numeric
+$ sort -rn numbers.txt          # numeric, descending
+$ sort -h sizes.txt             # human sizes: 2K &lt; 1M &lt; 3G
+$ sort -u names.txt             # sorted, duplicates removed
+$ sort -t, -k3 -n data.csv      # by 3rd comma-separated field, numerically
+$ sort -k2,2 -k1,1 file.txt     # by field 2, then field 1
+
+$ uniq file.txt                 # collapse ADJACENT duplicates — sort first!
+$ uniq -c file.txt              # prefix each line with its count
+$ uniq -d file.txt              # only lines that were duplicated
+$ uniq -u file.txt              # only lines that appeared once
+
+$ cut -d, -f2 data.csv          # field 2, comma-delimited
+$ cut -d, -f1,3 data.csv        # fields 1 and 3
+$ cut -d: -f1 /etc/passwd       # usernames
+$ cut -c1-10 file.txt           # characters 1 through 10
+
+$ tr 'a-z' 'A-Z' &lt; file.txt     # uppercase
+$ tr -d '\r' &lt; dos.txt &gt; unix.txt   # strip carriage returns
+$ tr -s ' ' &lt; file.txt          # squeeze runs of spaces into one
+$ tr ' ' '\n' &lt; file.txt        # one word per line</code></pre>
+
+<div class="box tip">
+  <span class="label">The rule that trips everyone</span>
+  <p><code>uniq</code> only removes <em>adjacent</em> duplicate lines. It is a streaming tool with no memory. Always <code>sort</code> first: <code>sort file | uniq -c</code>. If you forget, you get a wrong answer rather than an error, which is worse.</p>
+</div>
+
+<h3 id="which-tool">Choosing between them</h3>
+
+<table>
+  <tr><th>Job</th><th>Reach for</th></tr>
+  <tr><td>Which lines contain X?</td><td><code>grep</code></td></tr>
+  <tr><td>Replace X with Y everywhere</td><td><code>sed</code></td></tr>
+  <tr><td>Pull out column 3</td><td><code>cut</code> if the delimiter is consistent, <code>awk</code> if not</td></tr>
+  <tr><td>Sum or average a column</td><td><code>awk</code></td></tr>
+  <tr><td>Count occurrences</td><td><code>sort | uniq -c | sort -rn</code></td></tr>
+  <tr><td>Anything involving JSON</td><td><code>jq</code>, not these</td></tr>
+  <tr><td>More than ~20 lines of awk</td><td>Python</td></tr>
+</table>
+
+<div class="box lab">
+  <span class="label">Lab 7 · Text wrangling</span>
+  <p>Work inside <code>~/shell-lab</code>. <code>data/sales_2026.csv</code> has a header row and columns: <code>date,region,product,units,revenue</code>.</p>
+  <ol>
+    <li>Print just the <code>region</code> column, skipping the header.</li>
+    <li>List each region once, with a count of how many rows it has, sorted most-frequent first.</li>
+    <li>Sum the <code>revenue</code> column.</li>
+    <li>Print only the rows where <code>units</code> is greater than 50.</li>
+    <li>Compute the average revenue per row, printed to two decimal places.</li>
+    <li>In <code>conf/nginx.conf</code>, replace every occurrence of <code>worker_processes 2</code> with <code>worker_processes 4</code>, saving a <code>.bak</code> of the original.</li>
+    <li>Print <code>conf/nginx.conf</code> with all comment lines and blank lines removed.</li>
+    <li>From <code>logs/app.log</code>, produce a count of each log level, sorted by frequency.</li>
+    <li>Convert <code>data/names.txt</code> to all uppercase, one word per line.</li>
+  </ol>
+</div>
+
+<h3 id="q7">Questions</h3>
+
+<details><summary>Why must you <code>sort</code> before <code>uniq</code>?</summary>
+<div class="ans"><p><code>uniq</code> compares each line only to the one immediately before it — it holds no state beyond that, which is what lets it stream a file of any size. Duplicates scattered through the file therefore survive. <code>sort</code> brings identical lines together first. (<code>sort -u</code> does both in one step, but does not give you counts, so <code>sort | uniq -c</code> stays useful.)</p></div></details>
+
+<details><summary>When is <code>cut</code> the wrong tool and <code>awk</code> the right one?</summary>
+<div class="ans"><p>When fields are separated by <em>runs</em> of whitespace of varying width — the output of <code>ls -l</code>, <code>ps</code>, or <code>df</code>. <code>cut -d' '</code> treats every single space as a delimiter, so a double space produces an empty field and the columns shift. awk's default splitting collapses runs of whitespace, so <code>awk '{print $5}'</code> just works. Use <code>cut</code> for clean single-character delimiters like CSV or <code>/etc/passwd</code>.</p></div></details>
+
+<details><summary>How would you replace a string across every <code>.conf</code> file in a tree?</summary>
+<div class="ans"><p><code>find . -name "*.conf" -exec sed -i.bak 's/old/new/g' {} +</code>. Two safety notes: run it first without <code>-i</code> to see the substitutions printed, and the <code>.bak</code> suffix means every file gets a backup you can restore from — and then have to clean up with <code>find . -name "*.bak" -delete</code>.</p></div></details>
+
+<details><summary>What does <code>awk 'NR &gt; 1'</code> do, and why is it so common?</summary>
+<div class="ans"><p><code>NR</code> is the current record (line) number, and a bare condition with no action block means "print the line". So <code>NR &gt; 1</code> prints everything except line 1 — it skips the header row of a CSV. The companion idiom is <code>NR == 1</code> to print <em>only</em> the header.</p></div></details>
+
+<details><summary>Your regex <code>grep '192.168.1.1'</code> matches lines you did not expect. Why?</summary>
+<div class="ans"><p><code>.</code> in a regex matches any character, so that pattern also matches <code>192a168b1c1</code> and, more realistically, <code>192.168.1.100</code> as a substring. Either escape the dots (<code>grep '192\.168\.1\.1'</code>), anchor it with <code>-w</code>, or use <code>grep -F</code> to turn regex off entirely.</p></div></details>
+
+<details><summary>What is the awk equivalent of <code>sort | uniq -c</code>, and when is it better?</summary>
+<div class="ans"><p><code>awk '{c[$1]++} END {for (k in c) print c[k], k}'</code>. It is better on very large inputs, because it makes one pass and holds only the distinct keys in memory, whereas <code>sort</code> must order every line. The tradeoff is that the output is unordered, so you usually append <code>| sort -rn</code> anyway — on a modest file, the simpler <code>sort | uniq -c</code> is the better choice for readability.</p></div></details>

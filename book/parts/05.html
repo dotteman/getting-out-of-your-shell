@@ -1,0 +1,132 @@
+<h2 id="ch5"><span class="chapnum">Chapter 5</span>Pipes and Redirection</h2>
+
+<p>This is the chapter that turns a pile of commands into a toolkit. If you only properly learn one chapter, make it this one.</p>
+
+<h3 id="three-streams">Every command has three streams</h3>
+
+<p>When a program runs, the shell hands it three channels:</p>
+
+<table>
+  <tr><th>Stream</th><th>Number</th><th>Default</th></tr>
+  <tr><td><strong>stdin</strong> — input</td><td>0</td><td>your keyboard</td></tr>
+  <tr><td><strong>stdout</strong> — normal output</td><td>1</td><td>your screen</td></tr>
+  <tr><td><strong>stderr</strong> — error output</td><td>2</td><td>your screen</td></tr>
+</table>
+
+<p>Errors go to a separate channel <em>on purpose</em>, so that when you redirect output to a file the errors still reach you instead of silently landing in the data.</p>
+
+<h3 id="redirection">Redirection: pointing a stream at a file</h3>
+
+<pre><code>$ ls &gt; files.txt            # stdout to a file, overwriting it
+$ ls &gt;&gt; files.txt           # stdout appended to the file
+$ ls /nope 2&gt; errors.txt    # stderr to a file
+$ ls /nope &gt; out.txt 2&gt;&amp;1   # stdout to file, then stderr to wherever stdout goes
+$ ls /nope &amp;&gt; all.txt       # bash shorthand for the same thing
+$ command &gt; /dev/null 2&gt;&amp;1  # discard everything; /dev/null is the bit bucket
+$ sort &lt; unsorted.txt       # feed a file in as stdin</code></pre>
+
+<div class="box warn">
+  <span class="label">Order matters</span>
+  <p><code>2&gt;&amp;1 &gt; file</code> is not the same as <code>&gt; file 2&gt;&amp;1</code>. Read it right to left as a series of assignments: the first sends stderr to <em>the current</em> stdout (the terminal) and only then moves stdout to the file — so errors still hit your screen. Put the redirection first: <code>&gt; file 2&gt;&amp;1</code>. Or just use <code>&amp;&gt;</code>.</p>
+</div>
+
+<h3 id="pipes">Pipes: one command's output as the next one's input</h3>
+
+<p>The <code>|</code> character connects stdout of the left-hand command to stdin of the right-hand one. No temporary files, and both commands run at the same time.</p>
+
+<pre><code>$ ls -l | wc -l                      # how many entries in this directory
+$ ps aux | grep nginx                 # find nginx processes
+$ cat access.log | grep 404 | wc -l   # how many 404s (and one useless cat)
+$ grep 404 access.log | wc -l         # better</code></pre>
+
+<p>A realistic pipeline reads like a sentence. This one answers "which IP addresses hit us most?":</p>
+
+<pre><code>$ cut -d' ' -f1 access.log | sort | uniq -c | sort -rn | head -n 10
+  4821 10.0.0.14
+  3390 10.0.0.7
+   902 192.168.1.55</code></pre>
+
+<p>Step by step: take field 1 using space as the delimiter → sort so identical lines are adjacent → <code>uniq -c</code> collapses runs and prefixes a count → sort numerically, largest first → take the top ten. The <code>sort | uniq -c | sort -rn</code> sequence is such a common idiom that it is worth memorizing as a single unit.</p>
+
+<div class="box tip">
+  <span class="label">Build pipelines one stage at a time</span>
+  <p>Do not write the whole thing and then debug it. Run <code>cut -d' ' -f1 access.log | head</code>, look at the output, then add <code>| sort | uniq -c | head</code>, look again. Adding <code>| head</code> at the end of an in-progress pipeline keeps the output readable while you work.</p>
+</div>
+
+<h3 id="tee">tee: a pipe with a tap</h3>
+
+<pre><code>$ make 2&gt;&amp;1 | tee build.log            # watch the output AND save it
+$ make 2&gt;&amp;1 | tee -a build.log         # append instead of overwrite
+$ echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf</code></pre>
+
+<p>That last line solves a problem that trips up everyone: <code>sudo echo x &gt; /etc/file</code> fails, because the redirection is performed by <em>your</em> shell (unprivileged) before <code>sudo</code> ever runs. <code>tee</code> is the program doing the writing, so <code>sudo tee</code> works.</p>
+
+<h3 id="xargs">xargs: turn input into arguments</h3>
+
+<p>Some commands read stdin (<code>grep</code>, <code>sort</code>, <code>wc</code>). Others only take arguments (<code>rm</code>, <code>cp</code>, <code>mkdir</code>). <code>xargs</code> bridges the two.</p>
+
+<pre><code>$ find . -name '*.tmp' | xargs rm            # delete every .tmp file
+$ find . -name '*.log' -print0 | xargs -0 rm # safe with spaces in names
+$ cat servers.txt | xargs -I{} ssh {} uptime # run a command per line
+$ ls *.csv | xargs -n1 wc -l                 # one argument per invocation
+$ find . -name '*.jpg' | xargs -P4 -I{} convert {} {}.png   # 4 in parallel</code></pre>
+
+<p><code>-print0</code>/<code>-0</code> pairs null bytes as separators instead of whitespace, which is the correct way to handle filenames containing spaces. Use it by default when piping <code>find</code> into <code>xargs</code>.</p>
+
+<h3 id="chaining">Chaining on success and failure</h3>
+
+<pre><code>$ mkdir build &amp;&amp; cd build      # run the second only if the first succeeded
+$ ping -c1 host || echo "host is down"   # run the second only if the first failed
+$ cd /tmp ; ls                  # run both regardless</code></pre>
+
+<p>Every command returns an <strong>exit code</strong>: 0 means success, anything else means failure. <code>$?</code> holds the last one.</p>
+
+<pre><code>$ grep -q ERROR app.log
+$ echo $?
+0                                # 0 = found it = success</code></pre>
+
+<p><code>&amp;&amp;</code> is the single most valuable operator in this list. <code>cd /some/dir &amp;&amp; rm -rf *</code> is dramatically safer than <code>cd /some/dir; rm -rf *</code>, because if the <code>cd</code> fails, the second version deletes the contents of whatever directory you happened to be in.</p>
+
+<h3 id="substitution">Command substitution</h3>
+
+<pre><code>$ echo "Today is $(date +%F)"
+Today is 2026-08-14
+$ tar -czf "backup-$(date +%F).tar.gz" data/
+$ kill $(pgrep -f myapp)
+$ files=$(ls *.txt | wc -l)</code></pre>
+
+<p><code>$(...)</code> runs the command inside and substitutes its output. You may also see backticks — <code>`date`</code> — in older scripts; they work but do not nest, so prefer <code>$( )</code>.</p>
+
+<div class="box lab">
+  <span class="label">Lab 5 · Plumbing</span>
+  <p>Work inside <code>~/shell-lab</code>.</p>
+  <ol>
+    <li>Count how many lines in <code>logs/app.log</code> contain <code>ERROR</code>, using a pipe.</li>
+    <li>Write the names of all files in <code>data/</code> into a file called <code>manifest.txt</code>, then append the current date to the end of that file.</li>
+    <li>Run <code>ls /does/not/exist</code> so that the error message goes into <code>err.txt</code> and nothing appears on your screen.</li>
+    <li>Produce a top-5 list of the most frequent log levels in <code>logs/app.log</code> (the second field of each line). Expect a <code>cut | sort | uniq -c | sort -rn | head</code> pipeline.</li>
+    <li>Run <code>wc -l</code> on <code>logs/app.log</code>, showing the result on screen <em>and</em> saving it to <code>count.txt</code>, in one command.</li>
+    <li>Use <code>find</code> and <code>xargs</code> to delete every <code>.tmp</code> file under <code>data/</code>, handling spaces in names safely.</li>
+    <li>Write a one-liner that creates a directory named after today's date and moves <code>manifest.txt</code> into it — and does not move anything if the directory could not be created.</li>
+  </ol>
+</div>
+
+<h3 id="q5">Questions</h3>
+
+<details><summary>Why does <code>sudo echo "text" &gt;&gt; /etc/hosts</code> fail with "permission denied"?</summary>
+<div class="ans"><p>Because your shell sets up the <code>&gt;&gt;</code> redirection <em>before</em> it runs <code>sudo</code>, and your shell is not root. The <code>sudo</code> only elevates <code>echo</code>, which is not the process opening the file. Fix it with <code>echo "text" | sudo tee -a /etc/hosts</code>, or <code>sudo sh -c 'echo "text" &gt;&gt; /etc/hosts'</code>.</p></div></details>
+
+<details><summary>What does <code>2&gt;&amp;1</code> mean, character by character?</summary>
+<div class="ans"><p><code>2</code> is stderr, <code>&gt;</code> is redirect, <code>&amp;1</code> means "to wherever file descriptor 1 currently points" — the ampersand distinguishes it from a file literally named <code>1</code>. So: "send stderr to the same place stdout is going right now." Because it copies the <em>current</em> destination, position in the command line matters.</p></div></details>
+
+<details><summary>You want the ten largest files in a directory tree. Sketch the pipeline.</summary>
+<div class="ans"><p><code>du -ah . | sort -rh | head -n 10</code>. <code>du -ah</code> prints sizes for all files, <code>sort -rh</code> sorts human-readable sizes (so 2G beats 900M) in reverse, <code>head</code> trims. The <code>-h</code> flag on <code>sort</code> is the piece most people do not know about, and it is what makes this work.</p></div></details>
+
+<details><summary>When do you need <code>xargs</code> instead of a plain pipe?</summary>
+<div class="ans"><p>When the receiving command reads its inputs from the command line rather than from stdin. <code>rm</code>, <code>mkdir</code>, <code>cp</code>, and <code>echo</code> ignore stdin entirely — <code>ls | rm</code> does nothing useful. <code>xargs</code> reads stdin and rebuilds it into arguments. Commands like <code>grep</code>, <code>sort</code>, <code>wc</code>, and <code>sed</code> read stdin natively, so no <code>xargs</code> needed.</p></div></details>
+
+<details><summary>What is the difference between <code>cmd1 &amp;&amp; cmd2</code> and <code>cmd1 ; cmd2</code>?</summary>
+<div class="ans"><p><code>;</code> runs <code>cmd2</code> unconditionally. <code>&amp;&amp;</code> runs it only if <code>cmd1</code> exited 0. In anything that touches files, prefer <code>&amp;&amp;</code>: it makes the second command's precondition explicit, and it is the difference between a failed <code>cd</code> being harmless and being catastrophic.</p></div></details>
+
+<details><summary>How would you check whether a string appears in a file without printing anything?</summary>
+<div class="ans"><p><code>grep -q PATTERN file</code>. The <code>-q</code> flag suppresses output and exits as soon as it finds a match; you read the result from the exit code. That makes it the right thing to put inside an <code>if</code>: <code>if grep -q ERROR app.log; then ... ; fi</code>.</p></div></details>
