@@ -44,6 +44,14 @@ try {
   const termText = await page.locator('.live-term').first().locator('.shell-term-body').innerText();
   check('typed command produces the answer-key value 31505.00', termText.includes('31505.00'), termText.slice(-200));
 
+  // `clear` wipes the screen instead of printing a marker.
+  await input.type('clear');
+  await input.press('Enter');
+  const afterClear = await page.locator('.live-term').first().locator('.shell-term-body').innerText();
+  check('clear empties the terminal', !/CLEAR/i.test(afterClear) && !afterClear.includes('31505.00') && (await page.locator('.live-term').first().locator('.shell-term-line').count()) === 0, JSON.stringify(afterClear.slice(0, 120)));
+  await input.type(`awk -F, 'NR>1 {s+=$5} END {printf "%.2f\\n", s}' data/sales_2026.csv`);
+  await input.press('Enter');
+
   // The shared sandbox: a file made in chapter 1 is visible from chapter 8's terminal.
   await input.type('touch smoke-marker.txt');
   await input.press('Enter');

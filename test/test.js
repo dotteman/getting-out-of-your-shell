@@ -340,5 +340,30 @@ checkContains('rsync without slash nests dir', 'ls rs1', 'data');
 r('rsync -av data/ rs2/ > /dev/null');
 checkContains('rsync with slash copies contents', 'ls rs2', 'sales_2026.csv');
 
+section('Regression: lab 1 gaps found in the interactive book');
+fresh();
+check('hostname', 'hostname', 'web-01\n');
+checkContains('ls --help gives usage, not a listing', 'ls --help', 'Usage: ls [OPTION]... [FILE]...');
+checkContains('ls --help documents -t (lab 1 asks for it)', 'ls --help', '-t  sort by modification time');
+checkNotContains('ls --help does not list the directory', 'ls --help', 'archive');
+check('echo --help stays literal', 'echo --help', '--help\n');
+checkContains('--help on a command with no page says so', 'wc --help', 'Usage: wc');
+check('type -a python3 matches the book', 'type -a python3', 'python3 is /usr/bin/python3\n');
+check('which python3 matches the book', 'which python3', '/usr/bin/python3\n');
+check('type -a echo lists builtin then file', 'type -a echo', 'echo is a shell builtin\necho is /usr/bin/echo\n');
+check('type -t', 'type -t cd ls', 'builtin\nfile\n');
+check('type of a missing name goes to stderr with exit 1', 'type nosuchthing 2>/dev/null; echo $?', '1\n');
+checkContains('type of a missing name says not found', 'type nosuchthing', 'not found');
+checkContains('an unsimulated program says so instead of "command not found"', 'python3 -V', 'not simulated');
+{
+  fresh();
+  const c = r('clear');
+  if (c.clear === true && c.chunks.length === 0) passes++; else { fails++; console.log('FAIL [clear flags the UI and prints nothing]', JSON.stringify(c)); }
+  const d = r('echo before; clear; echo after');
+  if (d.clear === true && text(d) === 'after\n') passes++; else { fails++; console.log('FAIL [clear drops output printed before it]', JSON.stringify(d)); }
+  const e = r('echo plain');
+  if (!e.clear) passes++; else { fails++; console.log('FAIL [no clear flag on ordinary commands]'); }
+}
+
 console.log(`\n===== ${passes} passed, ${fails} failed =====`);
 process.exitCode = fails ? 1 : 0;

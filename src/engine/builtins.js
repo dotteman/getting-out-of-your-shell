@@ -766,14 +766,36 @@
       if (!found.length) return { code: 1 };
       return { stdout: found.join('\n') + '\n' };
     };
+    // Programs a real machine has that this sandbox does not simulate. They resolve
+    // for which/type/command -v (so the book's `type -a python3` shows what it
+    // shows on a real box) and say so, rather than "command not found", if run.
+    for (const name of ['python3', 'git', 'vim', 'nano']) {
+      builtins[name] = () => ({ stderr: `bash: ${name}: installed on a real machine, but not simulated in this sandbox\n`, code: 1 });
+    }
+    // Commands that exist both as a shell builtin and as a file in /usr/bin.
+    const ALSO_A_FILE = new Set(['echo', 'pwd', 'printf', 'test', 'kill', 'true', 'false']);
     builtins.type = (args) => {
-      const out = args.map((a) => {
-        if (state.aliases[a]) return `${a} is aliased to \`${state.aliases[a]}'`;
-        if (BUILTIN_NAMES.has(a)) return `${a} is a shell builtin`;
-        if (state.commandsList && state.commandsList.includes(a)) return `${a} is /usr/bin/${a}`;
-        return `bash: type: ${a}: not found`;
-      });
-      return { stdout: out.join('\n') + '\n' };
+      let all = false, mode = '';
+      args = args.slice();
+      while (args[0] && /^-[atpPf]+$/.test(args[0])) {
+        for (const ch of args.shift().slice(1)) { if (ch === 'a') all = true; else if (ch === 't') mode = 't'; else if (ch === 'p' || ch === 'P') mode = 'p'; }
+      }
+      let out = '', err = '', code = 0;
+      for (const a of args) {
+        const hits = [];
+        if (state.aliases[a]) hits.push({ kind: 'alias', text: `${a} is aliased to \`${state.aliases[a]}'` });
+        if (BUILTIN_NAMES.has(a)) hits.push({ kind: 'builtin', text: `${a} is a shell builtin` });
+        const isFile = state.commandsList && state.commandsList.includes(a) && (!BUILTIN_NAMES.has(a) || ALSO_A_FILE.has(a));
+        if (isFile || (ALSO_A_FILE.has(a) && BUILTIN_NAMES.has(a))) hits.push({ kind: 'file', text: `${a} is /usr/bin/${a}`, path: `/usr/bin/${a}` });
+        const shown = all ? hits : hits.slice(0, 1);
+        if (!hits.length) { if (mode !== 't' && mode !== 'p') err += `bash: type: ${a}: not found\n`; code = 1; continue; }
+        for (const h of shown) {
+          if (mode === 't') out += h.kind + '\n';
+          else if (mode === 'p') { if (h.path) out += h.path + '\n'; }
+          else out += h.text + '\n';
+        }
+      }
+      return { stdout: out, stderr: err, code };
     };
     builtins.command = (args, stdin, c) => {
       if (args[0] === '-v') return builtins.which(args.slice(1));
@@ -1394,6 +1416,7 @@
     builtins.whoami = () => ({ stdout: user.name + '\n' });
     builtins.id = () => ({ stdout: `uid=1000(${user.name}) gid=1000(${user.primaryGroup}) groups=${user.groups.map((g, i) => `${1000 + i}(${g})`).join(',')}\n` });
     builtins.groups = () => ({ stdout: user.groups.join(' ') + '\n' });
+    builtins.hostname = (args) => ({ stdout: (args.includes('-f') ? 'web-01.internal' : 'web-01') + '\n' });
     builtins.uname = (args) => ({ stdout: args.includes('-a') ? 'Linux web-01 6.8.0-generic #1 SMP x86_64 GNU/Linux\n' : 'Linux\n' });
 
     builtins.sudo = (args, stdin, c) => {
@@ -1621,16 +1644,28 @@
       return { stdout: prettyPath(segs) + '\n' };
     };
 
-    builtins.man = (args) => {
-      const topic = args[0];
-      const pages = {
-        ls: 'LS(1)\n\nNAME\n  ls - list directory contents\n\nSYNOPSIS\n  ls [OPTION]... [FILE]...\n\nCOMMON OPTIONS\n  -l  long listing   -a  show hidden   -h  human sizes   -t  sort by time   -r  reverse   -R  recursive\n',
+    const MAN_PAGES = {
+        ls: 'LS(1)\n\nNAME\n  ls - list directory contents\n\nSYNOPSIS\n  ls [OPTION]... [FILE]...\n\nOPTIONS\n  -l  long listing        -a  show hidden files (dotfiles)\n  -h  human-readable sizes (with -l)\n  -t  sort by modification time, newest first\n  -r  reverse the sort order    -S  sort by size, largest first\n  -R  recurse into subdirectories    -d  list directories themselves, not their contents\n  -1  one entry per line\n',
         cd: 'CD(1) shell builtin\n\nNAME\n  cd - change the working directory\n\nSYNOPSIS\n  cd [DIRECTORY]\n\n  With no argument, changes to $HOME. "cd -" returns to the previous directory.\n',
         grep: 'GREP(1)\n\nNAME\n  grep - print lines that match a pattern\n\nSYNOPSIS\n  grep [OPTION]... PATTERN [FILE]...\n\nCOMMON OPTIONS\n  -i ignore case  -v invert  -n line numbers  -r recursive  -c count  -l files-with-matches  -E extended regex\n',
         chmod: 'CHMOD(1)\n\nNAME\n  chmod - change file mode bits\n\nSYNOPSIS\n  chmod MODE FILE...\n\n  MODE is either octal (755) or symbolic (u+x, go-w, a=rwx).\n',
         find: 'FIND(1)\n\nNAME\n  find - search for files in a directory hierarchy\n\nSYNOPSIS\n  find [PATH] [EXPRESSION]\n\nCOMMON TESTS\n  -name PATTERN  -type f|d|l  -mtime N  -size N  -maxdepth N  -delete  -exec CMD {} \\;\n',
         date: 'DATE(1)\n\nNAME\n  date - print or format the current time\n\nSYNOPSIS\n  date [+FORMAT]\n\nFORMAT SEQUENCES\n  %Y year  %m month  %d day  %H hour  %M minute  %S second  %F = %Y-%m-%d  %T = %H:%M:%S\n',
       };
+    // `cmd --help`: the usage line, a one-line description, then the common options.
+    state.helpFor = (name) => {
+      const page = MAN_PAGES[name];
+      if (!page) return `Usage: ${name} [OPTION]... [ARGUMENT]...\n(sandbox note: no full --help text for ${name} here — see the book chapter, or try: man ${name})\n`;
+      const lines = page.split('\n');
+      const at = (h) => lines.indexOf(h);
+      const syn = (lines[at('SYNOPSIS') + 1] || '').trim();
+      const desc = ((lines[at('NAME') + 1] || '').split(' - ')[1] || '').trim();
+      const rest = lines.slice(at('SYNOPSIS') + 2).join('\n').replace(/^\n+/, '');
+      return `Usage: ${syn}\n${desc.charAt(0).toUpperCase() + desc.slice(1)}.\n\n${rest}`.replace(/\n*$/, '\n');
+    };
+    builtins.man = (args) => {
+      const topic = args[0];
+      const pages = MAN_PAGES;
       if (!topic) return { stderr: 'What manual page do you want?\n', code: 1 };
       if (pages[topic]) return { stdout: pages[topic] };
       if (state.commandsList && state.commandsList.includes(topic)) return { stdout: `${topic.toUpperCase()}(1)\n\nNAME\n  ${topic} - (this sandbox doesn't have a full page for this one — try ${topic} --help, or the book's chapter.)\n` };

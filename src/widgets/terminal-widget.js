@@ -167,6 +167,11 @@
       this.trimScrollback();
     }
 
+    // What `clear` and Ctrl+L do: wipe the screen, keep the prompt.
+    clearScreen() {
+      [...this.body.querySelectorAll('.shell-term-line, .shell-term-candidates')].forEach((el) => el.remove());
+    }
+
     // Keep one terminal's scrollback bounded across a long session.
     trimScrollback() {
       const lines = this.body.querySelectorAll('.shell-term-line');
@@ -187,6 +192,7 @@
       let res;
       try { res = this.session.run(line); }
       catch (e) { res = { chunks: [{ stream: 'err', text: 'bash: internal error: ' + e.message + '\n' }] }; }
+      if (res.clear) this.clearScreen();
       this.printOutput(res);
       refreshAllPrompts(this.session);
       this.scrollToBottom();
@@ -287,7 +293,7 @@
       // Ctrl+L — clear screen
       if (ev.ctrlKey && ev.key === 'l') {
         ev.preventDefault();
-        [...this.body.querySelectorAll('.shell-term-line, .shell-term-candidates')].forEach((el) => el.remove());
+        this.clearScreen();
         return;
       }
       if (ev.key === 'Enter') { ev.preventDefault(); this.runCurrent(); return; }
@@ -344,6 +350,7 @@
         let res;
         try { res = this.session.run(line); }
         catch (e) { res = { chunks: [{ stream: 'err', text: 'bash: internal error: ' + e.message + '\n' }] }; }
+        if (res.clear) this.clearScreen();
         this.printOutput(res);
       }
       refreshAllPrompts(this.session);

@@ -34,7 +34,6 @@ export const NEVER_RUN = [
   // Interactive full-screen or editor programs have nothing useful to show in a
   // click-to-run block.
   /\bcrontab\s+-e\b/,
-  /^clear\b/, // the click-to-run terminal has no screen to clear
   /\bwatch\b/,
 ];
 

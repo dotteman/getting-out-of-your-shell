@@ -531,7 +531,7 @@ $ cd ~/shell-lab</code></pre>
 
 <h3 id="first-commands">The first six commands</h3>
 
-<pre><code data-run="[{&quot;l&quot;:0,&quot;c&quot;:&quot;pwd              # where am I?&quot;},{&quot;l&quot;:2,&quot;c&quot;:&quot;ls               # what is here?&quot;},{&quot;l&quot;:5,&quot;c&quot;:&quot;whoami           # who am I logged in as?&quot;},{&quot;l&quot;:7,&quot;c&quot;:&quot;date             # what time is it (on this machine)?&quot;}]">$ pwd              # where am I?
+<pre><code data-run="[{&quot;l&quot;:0,&quot;c&quot;:&quot;pwd              # where am I?&quot;},{&quot;l&quot;:2,&quot;c&quot;:&quot;ls               # what is here?&quot;},{&quot;l&quot;:5,&quot;c&quot;:&quot;whoami           # who am I logged in as?&quot;},{&quot;l&quot;:7,&quot;c&quot;:&quot;date             # what time is it (on this machine)?&quot;},{&quot;l&quot;:9,&quot;c&quot;:&quot;clear            # wipe the screen (Ctrl-L does the same)&quot;}]">$ pwd              # where am I?
 /home/dave
 $ ls               # what is here?
 Documents  Downloads  projects  notes.txt
@@ -4325,6 +4325,7 @@ $ crontab -e
     };
     const builtins = createBuiltins(builtinsCtx);
 
+    const HELP_IS_LITERAL = new Set(['echo', 'printf', 'test', '[', 'read', 'true', 'false', 'shift', 'exit', 'export', 'set', 'unset', 'alias', 'unalias', 'source', '.', 'sleep', 'seq', 'yes']);
     function runBuiltin(name, args, stdin, ctx) {
       if (name === undefined) return { stdout: '', stderr: '', code: 0 };
       // alias expansion (only first word, one level)
@@ -4341,6 +4342,9 @@ $ crontab -e
       if (name.indexOf('/') !== -1) return runScriptFile(name, args, stdin, ctx);
       const fn = builtins[name];
       if (!fn) return { stdout: '', stderr: `bash: ${name}: command not found\n`, code: 127 };
+      // `cmd --help` prints usage for real programs. Shell builtins that treat the
+      // word literally (echo --help prints "--help") are left alone.
+      if (args[0] === '--help' && state.helpFor && !HELP_IS_LITERAL.has(name)) return { stdout: state.helpFor(name), stderr: '', code: 0 };
       try {
         const r = fn(args, stdin, ctx || {}) || {};
         return { stdout: r.stdout || '', stderr: r.stderr || '', code: r.code === undefined ? 0 : r.code, exitShell: r.exitShell };
@@ -4407,7 +4411,21 @@ $ crontab -e
           state.lastExit = 1;
         }
       }
-      return { chunks: out, exit: state.lastExit, cwd: prettyPath(state.cwdSegs), cwdTilde: tildePath(state.cwdSegs) };
+      // `clear` writes a marker; keep only what comes after the last one and tell the
+      // UI to wipe the screen first.
+      const CLEAR = '\x1bCLEAR\x1b';
+      let clear = false;
+      for (let i = out.length - 1; i >= 0; i--) {
+        const k = out[i].text.lastIndexOf(CLEAR);
+        if (k === -1) continue;
+        clear = true;
+        out.splice(0, i);
+        out[0] = { stream: out[0].stream, text: out[0].text.slice(k + CLEAR.length) };
+        break;
+      }
+      const result = { chunks: out.filter((c) => c.text), exit: state.lastExit, cwd: prettyPath(state.cwdSegs), cwdTilde: tildePath(state.cwdSegs) };
+      if (clear) result.clear = true;
+      return result;
     }
 
     function promptCwd() { return tildePath(state.cwdSegs); }
@@ -4557,7 +4575,7 @@ http {
     'systemctl','journalctl','crontab','date','whoami','id','uname','mount','umount','diff',
     'basename','dirname','realpath','readlink','seq','yes','true','false','exit','trap','shift',
     'getopts','declare','mapfile','printenv','watch','tree','column','jq','nl','split','shuf','tac',
-    'groups','umask','clear','help','zcat','zgrep','lsof','ss','uptime','free'];
+    'groups','umask','clear','hostname','help','zcat','zgrep','lsof','ss','uptime','free'];
 
   // placeholder, replaced by builtins.js which defines createBuiltins and re-assigns module export
   var createBuiltins = function () { throw new Error('builtins.js not loaded'); };
@@ -6673,14 +6691,36 @@ http {
       if (!found.length) return { code: 1 };
       return { stdout: found.join('\n') + '\n' };
     };
+    // Programs a real machine has that this sandbox does not simulate. They resolve
+    // for which/type/command -v (so the book's `type -a python3` shows what it
+    // shows on a real box) and say so, rather than "command not found", if run.
+    for (const name of ['python3', 'git', 'vim', 'nano']) {
+      builtins[name] = () => ({ stderr: `bash: ${name}: installed on a real machine, but not simulated in this sandbox\n`, code: 1 });
+    }
+    // Commands that exist both as a shell builtin and as a file in /usr/bin.
+    const ALSO_A_FILE = new Set(['echo', 'pwd', 'printf', 'test', 'kill', 'true', 'false']);
     builtins.type = (args) => {
-      const out = args.map((a) => {
-        if (state.aliases[a]) return `${a} is aliased to \`${state.aliases[a]}'`;
-        if (BUILTIN_NAMES.has(a)) return `${a} is a shell builtin`;
-        if (state.commandsList && state.commandsList.includes(a)) return `${a} is /usr/bin/${a}`;
-        return `bash: type: ${a}: not found`;
-      });
-      return { stdout: out.join('\n') + '\n' };
+      let all = false, mode = '';
+      args = args.slice();
+      while (args[0] && /^-[atpPf]+$/.test(args[0])) {
+        for (const ch of args.shift().slice(1)) { if (ch === 'a') all = true; else if (ch === 't') mode = 't'; else if (ch === 'p' || ch === 'P') mode = 'p'; }
+      }
+      let out = '', err = '', code = 0;
+      for (const a of args) {
+        const hits = [];
+        if (state.aliases[a]) hits.push({ kind: 'alias', text: `${a} is aliased to \`${state.aliases[a]}'` });
+        if (BUILTIN_NAMES.has(a)) hits.push({ kind: 'builtin', text: `${a} is a shell builtin` });
+        const isFile = state.commandsList && state.commandsList.includes(a) && (!BUILTIN_NAMES.has(a) || ALSO_A_FILE.has(a));
+        if (isFile || (ALSO_A_FILE.has(a) && BUILTIN_NAMES.has(a))) hits.push({ kind: 'file', text: `${a} is /usr/bin/${a}`, path: `/usr/bin/${a}` });
+        const shown = all ? hits : hits.slice(0, 1);
+        if (!hits.length) { if (mode !== 't' && mode !== 'p') err += `bash: type: ${a}: not found\n`; code = 1; continue; }
+        for (const h of shown) {
+          if (mode === 't') out += h.kind + '\n';
+          else if (mode === 'p') { if (h.path) out += h.path + '\n'; }
+          else out += h.text + '\n';
+        }
+      }
+      return { stdout: out, stderr: err, code };
     };
     builtins.command = (args, stdin, c) => {
       if (args[0] === '-v') return builtins.which(args.slice(1));
@@ -7301,6 +7341,7 @@ http {
     builtins.whoami = () => ({ stdout: user.name + '\n' });
     builtins.id = () => ({ stdout: `uid=1000(${user.name}) gid=1000(${user.primaryGroup}) groups=${user.groups.map((g, i) => `${1000 + i}(${g})`).join(',')}\n` });
     builtins.groups = () => ({ stdout: user.groups.join(' ') + '\n' });
+    builtins.hostname = (args) => ({ stdout: (args.includes('-f') ? 'web-01.internal' : 'web-01') + '\n' });
     builtins.uname = (args) => ({ stdout: args.includes('-a') ? 'Linux web-01 6.8.0-generic #1 SMP x86_64 GNU/Linux\n' : 'Linux\n' });
 
     builtins.sudo = (args, stdin, c) => {
@@ -7528,16 +7569,28 @@ http {
       return { stdout: prettyPath(segs) + '\n' };
     };
 
-    builtins.man = (args) => {
-      const topic = args[0];
-      const pages = {
-        ls: 'LS(1)\n\nNAME\n  ls - list directory contents\n\nSYNOPSIS\n  ls [OPTION]... [FILE]...\n\nCOMMON OPTIONS\n  -l  long listing   -a  show hidden   -h  human sizes   -t  sort by time   -r  reverse   -R  recursive\n',
+    const MAN_PAGES = {
+        ls: 'LS(1)\n\nNAME\n  ls - list directory contents\n\nSYNOPSIS\n  ls [OPTION]... [FILE]...\n\nOPTIONS\n  -l  long listing        -a  show hidden files (dotfiles)\n  -h  human-readable sizes (with -l)\n  -t  sort by modification time, newest first\n  -r  reverse the sort order    -S  sort by size, largest first\n  -R  recurse into subdirectories    -d  list directories themselves, not their contents\n  -1  one entry per line\n',
         cd: 'CD(1) shell builtin\n\nNAME\n  cd - change the working directory\n\nSYNOPSIS\n  cd [DIRECTORY]\n\n  With no argument, changes to $HOME. "cd -" returns to the previous directory.\n',
         grep: 'GREP(1)\n\nNAME\n  grep - print lines that match a pattern\n\nSYNOPSIS\n  grep [OPTION]... PATTERN [FILE]...\n\nCOMMON OPTIONS\n  -i ignore case  -v invert  -n line numbers  -r recursive  -c count  -l files-with-matches  -E extended regex\n',
         chmod: 'CHMOD(1)\n\nNAME\n  chmod - change file mode bits\n\nSYNOPSIS\n  chmod MODE FILE...\n\n  MODE is either octal (755) or symbolic (u+x, go-w, a=rwx).\n',
         find: 'FIND(1)\n\nNAME\n  find - search for files in a directory hierarchy\n\nSYNOPSIS\n  find [PATH] [EXPRESSION]\n\nCOMMON TESTS\n  -name PATTERN  -type f|d|l  -mtime N  -size N  -maxdepth N  -delete  -exec CMD {} \\;\n',
         date: 'DATE(1)\n\nNAME\n  date - print or format the current time\n\nSYNOPSIS\n  date [+FORMAT]\n\nFORMAT SEQUENCES\n  %Y year  %m month  %d day  %H hour  %M minute  %S second  %F = %Y-%m-%d  %T = %H:%M:%S\n',
       };
+    // `cmd --help`: the usage line, a one-line description, then the common options.
+    state.helpFor = (name) => {
+      const page = MAN_PAGES[name];
+      if (!page) return `Usage: ${name} [OPTION]... [ARGUMENT]...\n(sandbox note: no full --help text for ${name} here — see the book chapter, or try: man ${name})\n`;
+      const lines = page.split('\n');
+      const at = (h) => lines.indexOf(h);
+      const syn = (lines[at('SYNOPSIS') + 1] || '').trim();
+      const desc = ((lines[at('NAME') + 1] || '').split(' - ')[1] || '').trim();
+      const rest = lines.slice(at('SYNOPSIS') + 2).join('\n').replace(/^\n+/, '');
+      return `Usage: ${syn}\n${desc.charAt(0).toUpperCase() + desc.slice(1)}.\n\n${rest}`.replace(/\n*$/, '\n');
+    };
+    builtins.man = (args) => {
+      const topic = args[0];
+      const pages = MAN_PAGES;
       if (!topic) return { stderr: 'What manual page do you want?\n', code: 1 };
       if (pages[topic]) return { stdout: pages[topic] };
       if (state.commandsList && state.commandsList.includes(topic)) return { stdout: `${topic.toUpperCase()}(1)\n\nNAME\n  ${topic} - (this sandbox doesn't have a full page for this one — try ${topic} --help, or the book's chapter.)\n` };
@@ -7981,6 +8034,11 @@ http {
       this.trimScrollback();
     }
 
+    // What `clear` and Ctrl+L do: wipe the screen, keep the prompt.
+    clearScreen() {
+      [...this.body.querySelectorAll('.shell-term-line, .shell-term-candidates')].forEach((el) => el.remove());
+    }
+
     // Keep one terminal's scrollback bounded across a long session.
     trimScrollback() {
       const lines = this.body.querySelectorAll('.shell-term-line');
@@ -8001,6 +8059,7 @@ http {
       let res;
       try { res = this.session.run(line); }
       catch (e) { res = { chunks: [{ stream: 'err', text: 'bash: internal error: ' + e.message + '\n' }] }; }
+      if (res.clear) this.clearScreen();
       this.printOutput(res);
       refreshAllPrompts(this.session);
       this.scrollToBottom();
@@ -8101,7 +8160,7 @@ http {
       // Ctrl+L — clear screen
       if (ev.ctrlKey && ev.key === 'l') {
         ev.preventDefault();
-        [...this.body.querySelectorAll('.shell-term-line, .shell-term-candidates')].forEach((el) => el.remove());
+        this.clearScreen();
         return;
       }
       if (ev.key === 'Enter') { ev.preventDefault(); this.runCurrent(); return; }
@@ -8158,6 +8217,7 @@ http {
         let res;
         try { res = this.session.run(line); }
         catch (e) { res = { chunks: [{ stream: 'err', text: 'bash: internal error: ' + e.message + '\n' }] }; }
+        if (res.clear) this.clearScreen();
         this.printOutput(res);
       }
       refreshAllPrompts(this.session);

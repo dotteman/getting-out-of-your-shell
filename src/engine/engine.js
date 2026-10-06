@@ -1417,6 +1417,7 @@
     };
     const builtins = createBuiltins(builtinsCtx);
 
+    const HELP_IS_LITERAL = new Set(['echo', 'printf', 'test', '[', 'read', 'true', 'false', 'shift', 'exit', 'export', 'set', 'unset', 'alias', 'unalias', 'source', '.', 'sleep', 'seq', 'yes']);
     function runBuiltin(name, args, stdin, ctx) {
       if (name === undefined) return { stdout: '', stderr: '', code: 0 };
       // alias expansion (only first word, one level)
@@ -1433,6 +1434,9 @@
       if (name.indexOf('/') !== -1) return runScriptFile(name, args, stdin, ctx);
       const fn = builtins[name];
       if (!fn) return { stdout: '', stderr: `bash: ${name}: command not found\n`, code: 127 };
+      // `cmd --help` prints usage for real programs. Shell builtins that treat the
+      // word literally (echo --help prints "--help") are left alone.
+      if (args[0] === '--help' && state.helpFor && !HELP_IS_LITERAL.has(name)) return { stdout: state.helpFor(name), stderr: '', code: 0 };
       try {
         const r = fn(args, stdin, ctx || {}) || {};
         return { stdout: r.stdout || '', stderr: r.stderr || '', code: r.code === undefined ? 0 : r.code, exitShell: r.exitShell };
@@ -1499,7 +1503,21 @@
           state.lastExit = 1;
         }
       }
-      return { chunks: out, exit: state.lastExit, cwd: prettyPath(state.cwdSegs), cwdTilde: tildePath(state.cwdSegs) };
+      // `clear` writes a marker; keep only what comes after the last one and tell the
+      // UI to wipe the screen first.
+      const CLEAR = '\x1bCLEAR\x1b';
+      let clear = false;
+      for (let i = out.length - 1; i >= 0; i--) {
+        const k = out[i].text.lastIndexOf(CLEAR);
+        if (k === -1) continue;
+        clear = true;
+        out.splice(0, i);
+        out[0] = { stream: out[0].stream, text: out[0].text.slice(k + CLEAR.length) };
+        break;
+      }
+      const result = { chunks: out.filter((c) => c.text), exit: state.lastExit, cwd: prettyPath(state.cwdSegs), cwdTilde: tildePath(state.cwdSegs) };
+      if (clear) result.clear = true;
+      return result;
     }
 
     function promptCwd() { return tildePath(state.cwdSegs); }
@@ -1649,7 +1667,7 @@ http {
     'systemctl','journalctl','crontab','date','whoami','id','uname','mount','umount','diff',
     'basename','dirname','realpath','readlink','seq','yes','true','false','exit','trap','shift',
     'getopts','declare','mapfile','printenv','watch','tree','column','jq','nl','split','shuf','tac',
-    'groups','umask','clear','help','zcat','zgrep','lsof','ss','uptime','free'];
+    'groups','umask','clear','hostname','help','zcat','zgrep','lsof','ss','uptime','free'];
 
   // placeholder, replaced by builtins.js which defines createBuiltins and re-assigns module export
   var createBuiltins = function () { throw new Error('builtins.js not loaded'); };
