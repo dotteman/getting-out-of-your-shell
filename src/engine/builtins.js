@@ -1910,7 +1910,11 @@
       for (const line of text.split('\n')) if (line.trim() && !line.trim().startsWith('#')) execLine(line, sink, c);
       return { stdout: out, stderr: errOut };
     };
+    const BASH_VERSION = '5.2.21(1)-release';
     builtins.bash = (args, stdin, c) => {
+      if (args[0] === '--version') {
+        return { stdout: `GNU bash, version ${BASH_VERSION} (x86_64-pc-linux-gnu)\nCopyright (C) 2022 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\nThis is free software; you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n` };
+      }
       const cIdx = args.indexOf('-c');
       if (cIdx === -1) {
         // `bash script.sh [args]` / `bash -x script.sh` — run the file.
@@ -1926,6 +1930,7 @@
       const savedVars = state.vars, savedExported = state.exported;
       const isolatedVars = {};
       for (const k of state.exported) isolatedVars[k] = state.vars[k];
+      isolatedVars.BASH_VERSION = BASH_VERSION;
       state.vars = isolatedVars; state.exported = new Set(state.exported);
       let out = '', errOut = '';
       const sink = { write: (s) => out += s, writeErr: (s) => errOut += s };

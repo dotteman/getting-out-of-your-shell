@@ -48,7 +48,7 @@ export function classifyBlock(block) {
     if (err) return { ...c, runnable: false, why: err.split('\n')[0] };
     // `2>&1 | tee` and friends carry error text on stdout, so look there too.
     const all = res.chunks.map((x) => x.text).join('');
-    const bad = all.match(/^.*(command not found|No such file or directory|internal error).*$/m);
+    const bad = all.match(/^.*(command not found|No such file or directory|internal error|isn't supported|not supported|doesn't implement|not simulated).*$/m);
     if (bad) return { ...c, runnable: false, why: bad[0].trim() };
     const bare = c.cmd.replace(/\s+#.*$/, ''); // the trailing comment is not part of the command
     if (NEVER_RUN.some((re) => re.test(bare))) return { ...c, runnable: false, why: 'excluded' };

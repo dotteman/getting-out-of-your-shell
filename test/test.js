@@ -365,5 +365,11 @@ checkContains('an unsimulated program says so instead of "command not found"', '
   if (!e.clear) passes++; else { fails++; console.log('FAIL [no clear flag on ordinary commands]'); }
 }
 
+fresh();
+checkContains('bash --version', 'bash --version', 'GNU bash, version 5.2.21(1)-release');
+check('BASH_VERSION', 'echo $BASH_VERSION', '5.2.21(1)-release\n');
+check('BASH_VERSION inside bash -c', "bash -c 'echo $BASH_VERSION'", '5.2.21(1)-release\n');
+section('Regression: bash --version');
+check('sh --version is not a sub-shell error', 'sh --version | head -n 1', 'GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)\n');
 console.log(`\n===== ${passes} passed, ${fails} failed =====`);
 process.exitCode = fails ? 1 : 0;

@@ -768,6 +768,7 @@
     state.vars.HOME = state.home;
     state.vars.USER = 'dave';
     state.vars.SHELL = '/bin/bash';
+    state.vars.BASH_VERSION = '5.2.21(1)-release';
     state.vars.PWD = state.home;
     state.vars.EDITOR = 'vim';
     state.vars.PATH = '/home/dave/bin:/usr/local/bin:/usr/bin:/bin';
